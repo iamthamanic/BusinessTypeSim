@@ -3,4 +3,11 @@ import { createRoot } from 'react-dom/client'
 import { App } from './app/App'
 import './styles.css'
 
-export { StrictMode, createRoot, App }
+const root = document.querySelector('#root')
+if (root instanceof HTMLElement) {
+  createRoot(root).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
