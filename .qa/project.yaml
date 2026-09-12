@@ -1,0 +1,13 @@
+appRoot: .
+devUrl: http://localhost:5173
+styleguide: docs/UI_STYLEGUIDE.md
+locale: de
+typedStrict:
+  languages:
+    - typescript
+navigation:
+  - Home
+  - Unternehmen
+  - Entscheidung
+  - Team
+  - Verlauf
