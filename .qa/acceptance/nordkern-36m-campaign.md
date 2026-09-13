@@ -27,6 +27,6 @@ Publish an immutable Nordkern Foods 36-month CampaignVersion with ≥35 situatio
 | B-08 | Yes | Unknown campaign → scaffold fail-closed |
 
 ## Composition Gate
-- HEAD_SHA: WORKTREE
+- HEAD_SHA: 493326ab838c730b9f93eba54903feeef40e003e
 - Verdict: CLEAR
 - Proof: `.qa/runs/composition-gate-nordkern-36m-campaign.md`

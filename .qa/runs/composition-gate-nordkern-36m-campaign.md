@@ -1,6 +1,6 @@
 # Composition Gate — nordkern-36m-campaign
 
-- HEAD_SHA: WORKTREE
+- HEAD_SHA: 493326ab838c730b9f93eba54903feeef40e003e
 - Date: 2026-09-13
 - Verdict: CLEAR
 
