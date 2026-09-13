@@ -128,11 +128,32 @@ export interface ScenarioDefinition {
   advisors: AdvisorDefinition[]
 }
 
+/**
+ * Kind-specific parameter bag (integer money in cents / bps as integers).
+ * Validated via shared/domain/action-params.ts — never invent missing fields.
+ * Optional fields allow explicit `undefined` so UI can clear values under exactOptionalPropertyTypes.
+ */
+export interface ActionParams {
+  amountCents?: number | undefined
+  targetId?: string | undefined
+  scope?: string | undefined
+  timingDays?: number | undefined
+  conditions?: string | undefined
+  fallback?: string | undefined
+  headcountDelta?: number | undefined
+  priceChangeBps?: number | undefined
+  projectId?: string | undefined
+  orgChange?: string | undefined
+}
+
 export interface ManagementAction {
   id: string
   kind: ActionKind
   label: string
   sourceText: string
+  /** Parameter schema version; starts at 1. */
+  schemaVersion: number
+  params: ActionParams
 }
 
 export interface ActionProposal {

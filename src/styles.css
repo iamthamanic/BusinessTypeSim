@@ -416,15 +416,143 @@ label > span { font-weight: 700; color: var(--text-primary); }
 .analysis-row--complete { border-left: 2px solid var(--positive); padding-left: 12px; }
 .composer-card { display: grid; gap: 16px; }
 .proposal-card { border-color: color-mix(in srgb, var(--accent-decision) 38%, var(--border-subtle)); }
-.proposal-actions { display: grid; gap: 10px; }
-.proposal-actions > div { display: flex; align-items: center; gap: 10px; }
+.proposal-actions { display: grid; gap: 10px; min-width: 0; }
 .proposal-meta { display: grid; gap: 5px; margin: 16px 0; color: var(--text-secondary); font-size: 13px; }
+.proposal-status { color: var(--text-secondary); margin: 8px 0 0; }
 .warning-box {
   margin-top: 14px;
   border-left: 3px solid var(--warning);
   padding: 10px 12px;
   background: color-mix(in srgb, var(--warning) 9%, transparent);
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.error-box {
+  margin-top: 14px;
+  border-left: 3px solid var(--negative);
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--negative) 10%, transparent);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.action-review-row {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+  overflow: hidden;
+}
+.action-review-row__summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 6px 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.action-review-row__summary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.action-review-row__summary:focus-visible {
+  outline: 2px solid var(--accent-decision);
+  outline-offset: -2px;
+}
+.action-review-row__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  grid-column: 1;
+}
+.action-review-row__head strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.action-review-row__primary {
+  grid-column: 1;
+  color: var(--text-secondary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.action-review-row__chevron {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+.action-review-sheet {
+  display: grid;
+  gap: 12px;
+  padding: 0 14px 14px;
+  min-width: 0;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+}
+.action-review-sheet .field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.action-review-sheet .field span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.action-review-sheet input,
+.action-review-sheet textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font: inherit;
+}
+.action-review-sheet textarea { min-height: 72px; resize: vertical; }
+.action-review-sheet input:disabled,
+.action-review-sheet textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.action-review-sheet input:focus-visible,
+.action-review-sheet textarea:focus-visible {
+  outline: 2px solid var(--accent-decision);
+  outline-offset: 1px;
+}
+
+@media (max-width: 480px) {
+  .proposal-card,
+  .proposal-actions,
+  .action-review-row,
+  .action-review-sheet {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  .button-row {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr;
+  }
+  .button-row .button {
+    width: 100%;
+    min-height: 48px;
+  }
 }
 
 .simulation-screen {

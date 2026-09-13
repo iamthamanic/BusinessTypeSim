@@ -4,7 +4,8 @@
  */
 import { useEffect, useState } from 'react'
 import { getPlayerScenario, type ActionProposal, type RunState } from '../../domain'
-import { Button, Card, SectionTitle, Tag } from '../../shared/ui'
+import { Button, Card, Tag } from '../../shared/ui'
+import { ProposalReviewCard } from './ProposalReviewCard'
 
 export type DecisionPhase = 'room' | 'analyses' | 'compose' | 'rationale' | 'review' | 'simulating'
 
@@ -45,6 +46,8 @@ export function DecisionView({
   proposal,
   busy,
   phase,
+  online,
+  interpretError,
   commitBlockedReason,
   onPhase,
   onDecisionText,
@@ -53,6 +56,7 @@ export function DecisionView({
   onPrepare,
   onConfirm,
   onResetProposal,
+  onProposalChange,
   onOpenTeam,
 }: {
   run: RunState
@@ -61,7 +65,9 @@ export function DecisionView({
   proposal: ActionProposal | null
   busy: boolean
   phase: DecisionPhase
-  commitBlockedReason?: string | null
+  online: boolean
+  interpretError?: string | null | undefined
+  commitBlockedReason?: string | null | undefined
   onPhase: (phase: DecisionPhase) => void
   onDecisionText: (value: string) => void
   onRationale: (value: string) => void
@@ -69,6 +75,7 @@ export function DecisionView({
   onPrepare: () => Promise<void>
   onConfirm: () => Promise<void>
   onResetProposal: () => void
+  onProposalChange: (proposal: ActionProposal) => void
   onOpenTeam: () => void
 }) {
   const scenario = getPlayerScenario(run.scenarioId)
@@ -169,36 +176,16 @@ export function DecisionView({
         ) : null}
 
         {phase === 'review' ? (
-          <Card className="proposal-card">
-            <SectionTitle title="So haben wir dich verstanden" meta="Vor Commit korrigierbar" />
-            {proposal ? (
-              <>
-                <div className="proposal-actions">
-                  {proposal.actions.map((action) => (
-                    <div key={action.id}><Tag tone="positive">Action</Tag><strong>{action.label}</strong></div>
-                  ))}
-                </div>
-                {proposal.ambiguities.length ? <div className="warning-box"><strong>Offen:</strong> {proposal.ambiguities.join(' ')}</div> : null}
-                <div className="proposal-meta">
-                  <span>Ziele: {proposal.extractedObjectives.join(', ') || 'nicht explizit erkannt'}</span>
-                  <span>Risiken: {proposal.extractedRisks.join(', ') || 'nicht explizit erkannt'}</span>
-                  <span>Evidence: {proposal.evidenceRefs.length} Analyse(n)</span>
-                </div>
-              </>
-            ) : (
-              <p>Keine strukturierte Interpretation — du kannst zurück und neu formulieren.</p>
-            )}
-            <div className="button-row">
-              <Button variant="secondary" onClick={() => onPhase('compose')}>Überarbeiten</Button>
-              <Button
-                disabled={busy || !proposal || Boolean(commitBlockedReason)}
-                onClick={() => { onPhase('simulating'); void onConfirm() }}
-              >
-                Committen & simulieren
-              </Button>
-            </div>
-            {commitBlockedReason ? <p className="offline-hint" role="status">{commitBlockedReason}</p> : null}
-          </Card>
+          <ProposalReviewCard
+            proposal={proposal}
+            busy={busy}
+            online={online}
+            interpretError={interpretError}
+            commitBlockedReason={commitBlockedReason}
+            onProposalChange={onProposalChange}
+            onBack={() => onPhase('compose')}
+            onConfirm={() => { onPhase('simulating'); void onConfirm() }}
+          />
         ) : null}
       </div>
     )
