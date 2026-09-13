@@ -36,11 +36,12 @@ describe('campaign runtime', () => {
   })
 
   it('activates at most one situation and suppresses exclusion peers', () => {
-    let run = createRun('nexora-saas', 'exclusion-seed')
+    // Scaffold campaigns still own klarwerk; Nexora is a full pack without followup_* peers.
+    let run = createRun('klarwerk-services', 'exclusion-seed')
     const text =
-      'Wir automatisieren Thüringen als Pilot und verhandeln Lidl auf Mindestmarge, ohne Massenentlassung.'
+      'Wir ziehen eine echte Führungsebene ein und testen höhere Tagessätze, ohne den Großkunden zu verlieren.'
     const rationale =
-      'Ziel: Marge und Kapazität. Risiko: Cash und Umsetzung. Alternative: nur Renegotiation.'
+      'Ziel: Entlastung und Marge. Risiko: Kundenbindung. Alternative: nur Pricing.'
     const proposal = interpretDecisionLocally(run, text, rationale)
     run = commitDecision(run, text, rationale, proposal, 'exclusion-key-1')
     expect(run.campaign.situations.some((item) => item.status === 'resolved')).toBe(true)
@@ -137,7 +138,7 @@ describe('campaign runtime', () => {
     const base = createRun('nexora-saas', 'norm')
     const { campaign: _removed, ...without } = base
     const restored = normalizeRunState(without)
-    expect(restored.campaign.campaignId).toContain('scaffold-nexora')
+    expect(restored.campaign.campaignId).toBe('nexora-saas-36m')
   })
 
   it('same seed advances campaign identically', () => {
