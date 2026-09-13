@@ -3,6 +3,7 @@ import {
   ensureManagementAction,
   inferParamsFromText,
 } from './action-params.ts'
+import { ConstraintViolationError, evaluateConstraints, hasConstraintBlockers } from './constraints.ts'
 import { getScenario, getScenarioAtVersion } from './scenarios.ts'
 import type {
   ActionKind,
@@ -329,6 +330,11 @@ export function commitDecision(
   const normalizedProposal: ActionProposal = {
     ...proposal,
     actions: proposal.actions.map(ensureManagementAction),
+  }
+
+  const constraints = evaluateConstraints(run, normalizedProposal)
+  if (hasConstraintBlockers(constraints)) {
+    throw new ConstraintViolationError(constraints)
   }
 
   for (const action of normalizedProposal.actions) {

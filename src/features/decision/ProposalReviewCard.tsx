@@ -1,9 +1,18 @@
 /**
  * Editable mobile review of interpreted ManagementActions before commit.
+ * Shows constraint blockers vs warnings; blockers disable commit.
  * Location: src/features/decision/ProposalReviewCard.tsx
  */
 import { useEffect, useState } from 'react'
-import type { ActionParams, ActionProposal, ManagementAction } from '../../domain'
+import {
+  evaluateConstraints,
+  hasConstraintBlockers,
+  type ActionParams,
+  type ActionProposal,
+  type ConstraintIssue,
+  type ManagementAction,
+  type RunState,
+} from '../../domain'
 import { Button, Card, SectionTitle, Tag } from '../../shared/ui'
 
 function centsToEuroInput(cents: number | undefined): string {
@@ -324,7 +333,49 @@ function ActionReviewRow({
   )
 }
 
+function ConstraintList({
+  title,
+  tone,
+  items,
+}: {
+  title: string
+  tone: 'negative' | 'warning'
+  items: ConstraintIssue[]
+}) {
+  const [detailOpen, setDetailOpen] = useState(false)
+  if (items.length === 0) return null
+
+  return (
+    <div className={tone === 'negative' ? 'constraint-box constraint-box--blocker' : 'constraint-box constraint-box--warning'}>
+      <button
+        type="button"
+        className="constraint-box__toggle"
+        aria-expanded={detailOpen}
+        onClick={() => setDetailOpen((current) => !current)}
+      >
+        <Tag tone={tone}>{tone === 'negative' ? 'Blocker' : 'Warnung'}</Tag>
+        <strong>{title}</strong>
+        <span className="constraint-box__count">{items.length}</span>
+        <span className="constraint-box__chevron" aria-hidden="true">{detailOpen ? '▾' : '›'}</span>
+      </button>
+      {detailOpen ? (
+        <ul className="constraint-box__list" role="list">
+          {items.map((item) => (
+            <li key={`${item.code}-${item.actionIds.join('-')}-${item.message}`}>
+              <code className="constraint-box__code">{item.code}</code>
+              <span>{item.message}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="constraint-box__preview">{items[0]?.message}</p>
+      )}
+    </div>
+  )
+}
+
 export function ProposalReviewCard({
+  run,
   proposal,
   busy,
   online,
@@ -334,6 +385,7 @@ export function ProposalReviewCard({
   onBack,
   onConfirm,
 }: {
+  run: RunState
   proposal: ActionProposal | null
   busy: boolean
   online: boolean
@@ -343,6 +395,10 @@ export function ProposalReviewCard({
   onBack: () => void
   onConfirm: () => void
 }) {
+  const constraints = proposal ? evaluateConstraints(run, proposal) : { blockers: [], warnings: [] }
+  const blockedByConstraints = hasConstraintBlockers(constraints)
+  const commitDisabled = busy || !proposal || Boolean(commitBlockedReason) || blockedByConstraints
+
   if (busy && !proposal) {
     return (
       <Card className="proposal-card proposal-card--loading" aria-busy="true">
@@ -384,6 +440,16 @@ export function ProposalReviewCard({
               />
             ))}
           </div>
+          <ConstraintList
+            title="Commit blockiert"
+            tone="negative"
+            items={constraints.blockers}
+          />
+          <ConstraintList
+            title="Trade-offs beachten"
+            tone="warning"
+            items={constraints.warnings}
+          />
           {proposal.ambiguities.length ? (
             <div className="warning-box">
               <strong>Offen:</strong> {proposal.ambiguities.join(' ')}
@@ -401,13 +467,18 @@ export function ProposalReviewCard({
       <div className="button-row">
         <Button variant="secondary" disabled={busy} onClick={onBack}>Überarbeiten</Button>
         <Button
-          disabled={busy || !proposal || Boolean(commitBlockedReason)}
+          disabled={commitDisabled}
           onClick={onConfirm}
         >
           {busy ? 'Committe …' : 'Committen & simulieren'}
         </Button>
       </div>
       {commitBlockedReason ? <p className="offline-hint" role="status">{commitBlockedReason}</p> : null}
+      {blockedByConstraints ? (
+        <p className="offline-hint" role="status">
+          Behebe die Blocker, bevor du committen kannst. Warnungen sind erlaubt.
+        </p>
+      ) : null}
     </Card>
   )
 }

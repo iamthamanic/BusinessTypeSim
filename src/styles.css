@@ -494,6 +494,81 @@ label > span { font-weight: 700; color: var(--text-primary); }
   overflow-wrap: anywhere;
 }
 
+.constraint-box {
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 0;
+}
+.constraint-box--blocker {
+  border: 1px solid color-mix(in srgb, var(--negative) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--negative) 10%, transparent);
+}
+.constraint-box--warning {
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--warning) 9%, transparent);
+}
+.constraint-box__toggle {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.constraint-box__toggle:focus-visible {
+  outline: 2px solid var(--accent-decision);
+  outline-offset: -2px;
+}
+.constraint-box__toggle strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.constraint-box__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-elevated) 80%, transparent);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.constraint-box__chevron {
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+.constraint-box__preview,
+.constraint-box__list {
+  margin: 0;
+  padding: 0 12px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.constraint-box__list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+}
+.constraint-box__list li {
+  display: grid;
+  gap: 4px;
+}
+.constraint-box__code {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
 .action-review-row {
   display: grid;
   gap: 0;
