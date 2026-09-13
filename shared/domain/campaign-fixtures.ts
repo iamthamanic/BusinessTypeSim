@@ -1,7 +1,6 @@
 /**
- * Published generic campaign scaffolds bound to ScenarioVersions.
+ * Published campaign catalog — generic scaffolds + production packs.
  * Location: shared/domain/campaign-fixtures.ts
- * Intentionally NOT Nordkern/Nexora 36m story packs (#9/#10) — runtime-only content.
  */
 import {
   CAMPAIGN_DURATION_MONTHS,
@@ -9,6 +8,7 @@ import {
   openingTemplateFromScenario,
   type CampaignCatalog,
 } from './campaign.ts'
+import { nordkernCampaignV1, NORDKERN_CAMPAIGN_ID } from './campaigns/nordkern-36m.ts'
 import { getScenario } from './scenarios.ts'
 import type { CampaignDefinition, ScenarioId, SituationTemplate } from './types.ts'
 
@@ -91,9 +91,8 @@ function scaffoldForScenario(scenarioId: ScenarioId): CampaignDefinition {
   }
 }
 
-const PLAYABLE: ScenarioId[] = [
+const PLAYABLE_SCAFFOLD: ScenarioId[] = [
   'nexora-saas',
-  'nordkern-foods',
   'klarwerk-services',
   'heliora-clinic',
   'marktwerk-marketplace',
@@ -101,18 +100,22 @@ const PLAYABLE: ScenarioId[] = [
   'urbanfit-retail',
 ]
 
+const nordkern = nordkernCampaignV1()
+
 /** Immutable published catalog keyed by campaign id. */
-export const publishedCampaigns: CampaignCatalog = Object.fromEntries(
-  PLAYABLE.map((scenarioId) => {
-    const def = scaffoldForScenario(scenarioId)
-    return [def.id, [def]]
-  }),
-)
+export const publishedCampaigns: CampaignCatalog = {
+  ...Object.fromEntries(
+    PLAYABLE_SCAFFOLD.map((scenarioId) => {
+      const def = scaffoldForScenario(scenarioId)
+      return [def.id, [def]]
+    }),
+  ),
+  [NORDKERN_CAMPAIGN_ID]: [nordkern],
+}
 
 export function getPublishedCampaignForScenario(scenarioId: ScenarioId): CampaignDefinition {
   const found = latestCampaignForScenario(publishedCampaigns, scenarioId)
   if (!found) {
-    // Fail-closed minimal scaffold if catalog incomplete.
     const scenario = getScenario(scenarioId)
     return {
       id: `scaffold-${scenarioId}`,
@@ -130,7 +133,7 @@ export function getPublishedCampaignForScenario(scenarioId: ScenarioId): Campaig
  * Not registered in the published catalog.
  */
 export function buildTestCampaign(overrides?: Partial<CampaignDefinition>): CampaignDefinition {
-  const base = scaffoldForScenario('nordkern-foods')
+  const base = scaffoldForScenario('nexora-saas')
   return {
     ...base,
     id: overrides?.id ?? 'test-campaign',

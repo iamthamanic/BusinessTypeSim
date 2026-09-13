@@ -36,7 +36,7 @@ describe('campaign runtime', () => {
   })
 
   it('activates at most one situation and suppresses exclusion peers', () => {
-    let run = createRun('nordkern-foods', 'exclusion-seed')
+    let run = createRun('nexora-saas', 'exclusion-seed')
     const text =
       'Wir automatisieren Thüringen als Pilot und verhandeln Lidl auf Mindestmarge, ohne Massenentlassung.'
     const rationale =
