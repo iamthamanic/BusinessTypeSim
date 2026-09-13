@@ -141,7 +141,7 @@ export function AuthPanel({
 
   if (!cloudConfigured) {
     return (
-      <section className="auth-panel card" aria-live="polite">
+      <section className="auth-panel card" data-testid="auth-panel" aria-live="polite">
         <span className="eyebrow">Cloud optional</span>
         <h2>Cloud-API nicht konfiguriert</h2>
         <p>Setze <code>VITE_API_URL</code>, um Anmeldung und Sync zu nutzen. Lokale Demos bleiben spielbar.</p>
