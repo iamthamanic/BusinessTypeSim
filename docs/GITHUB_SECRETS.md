@@ -28,8 +28,8 @@
 | `COOKIE_SECURE` | `true` | Set `false` only for local HTTP drills |
 | `TAVILY_API_KEY` | empty | Real-world debrief; omit if unused |
 | `LLM_BASE_URL` | `https://ollama.com/v1` | |
-| `LLM_MODEL` | `gpt-oss:120b` | |
-| `LLM_FALLBACK_MODEL` | `llama3.1:8b` | |
+| `LLM_MODEL` | `glm-5.3-flash:cloud` | |
+| `LLM_FALLBACK_MODEL` | `glm-5.3:cloud` | |
 | `LLM_TIMEOUT_MS` | `25000` | |
 | `AI_HOURLY_LIMIT` | `30` | |
 

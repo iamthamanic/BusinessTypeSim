@@ -92,7 +92,7 @@ aiRoutes.post('/', requireAuth, async (c) => {
           role: 'user',
           content: `Tool-Kontext:\n${toolContext}\n\nSichtbarer Kontext:\n${JSON.stringify(contextData)}\n\nFrage: ${input.question}`,
         },
-      ])
+      ], { task: 'advisor_chat' })
       return c.json({ answer })
     }
 
@@ -115,7 +115,7 @@ aiRoutes.post('/', requireAuth, async (c) => {
         role: 'user',
         content: `Sichtbarer Kontext:\n${JSON.stringify(contextData)}\n\nEntscheidung: ${input.playerText}\nBegründung: ${input.rationale}`,
       },
-    ])
+    ], { task: 'decision_interpret' })
     const validated = actionProposalSchema.safeParse(extractJson(content))
     if (!validated.success) return c.json({ error: 'INVALID_MODEL_OUTPUT' }, 422)
     const proposal: ActionProposal = validated.data
