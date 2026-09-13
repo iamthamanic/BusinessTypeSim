@@ -1,6 +1,6 @@
 # Composition Gate — campaign-runtime
 
-- HEAD_SHA: 066e46f0be30412941c59cc692d3fa928e05641c
+- HEAD_SHA: a8dd50808bf51b182055b7a338cd082c84d9eefb
 - Date: 2026-09-13
 - Verdict: CLEAR
 

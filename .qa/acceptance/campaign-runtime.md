@@ -61,7 +61,7 @@ Business Type wechselt von einzelnen Decision Cases zu mehrjährigen Company Run
 <!-- filled after coding -->
 
 ## Composition Gate
-- HEAD_SHA: 066e46f0be30412941c59cc692d3fa928e05641c
+- HEAD_SHA: a8dd50808bf51b182055b7a338cd082c84d9eefb
 - Verdict: CLEAR
 - Proof: `.qa/runs/composition-gate-campaign-runtime.md`
 - Skip reason: n/a
