@@ -211,6 +211,7 @@ Score-Definitionen müssen scenario-spezifische Rubrics erlauben, aber gemeinsam
 - Snapshot nach Decision Commit oder konfigurierbaren Intervallen;
 - Replay von ScenarioVersion + Events + Seed muss denselben State rekonstruieren;
 - alte Runs werden nie still auf neue Scenario-Regeln migriert.
+- Long-term Outcomes: `projectToHorizon` schreibt einen Fork bis +365 Sim-Tage fort; Vergleichsläufe nutzen `outcomeBaseSnapshot` (Post-Commit, Luck-Seeds) und optional `preDecisionSnapshot` (Alternate-Action Counterfactual). Decision Quality wird dabei nicht überschrieben.
 
 ## 15. Scenario versioning
 
@@ -257,3 +258,5 @@ Der Core startete mit einem kleineren `RunState` (Scenario-Version, Seed, Simula
 **World State V2** (`schemaVersion: 2`) erweitert denselben JSONB-Snapshot um typisierte Module (`customers`, `products`, `departments`, `projects`, `keyPeople`, `locations`, `contracts`, `competitors`) plus getrennte `playerKnowledge` / `advisorKnowledge`. Player-/Advisor-Read-Models filtern `hidden` / `researchable` / `system_only`. Veröffentlichte Scenario-Versionen bleiben immutable; Runs binden `scenarioVersion`. V1-Snapshots werden deterministisch normalisiert (leere Module, wenn die gebundene Scenario-Version kein `initialWorld` hat).
 
 Cloud-Runs werden als JSONB-State plus relationaler Run-Metadaten persistiert. Eine serverseitige `revision` schützt parallele Mutationen per optimistischer Versionskontrolle. Der lokale Demo-Modus nutzt denselben Core ohne Serverautorität und ist nicht für Competitive/Leaderboard-Wertung vorgesehen.
+
+**Campaign Runtime:** Same-day order endet mit `applyCampaignDay` (nach economic → analyses → scheduled → soft deadline). Runs binden `campaignId` + `campaignVersion`; Player-Views (`getPlayerCampaignView`) lassen Hidden/System-Trigger weg. Generische Scaffold-Campaigns sind Kataloginhalt; Nordkern/Nexora-36m-Packs sind separate Content-Issues.

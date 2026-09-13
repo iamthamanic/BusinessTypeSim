@@ -1,5 +1,6 @@
 /** Home — active Decision Room entry (mockup Decision Room lite on Home). */
 import { daysUntilDeadline, getScenarioAtVersion, type RunState } from '../../domain'
+import { CampaignSituationPanel } from '../campaign/CampaignSituationPanel'
 import { Button, Card, MetricTile, SectionTitle, Tag } from '../../shared/ui'
 import { formatMoney } from '../../shared/format'
 
@@ -43,6 +44,8 @@ export function HomeView({
           <strong>{formatMoney(run.metrics.revenueAnnualCents)} Umsatz / ARR</strong>
         </div>
       </section>
+
+      <CampaignSituationPanel run={run} />
 
       <Card className="action-stack">
         <button type="button" className="action-row" onClick={onGoTeam}>

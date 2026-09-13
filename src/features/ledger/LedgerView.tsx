@@ -3,7 +3,7 @@
  */
 import { useMemo, useState } from 'react'
 import {
-  compareOutcomes,
+  compareDecisionOutcomes,
   getNextPendingEventDay,
   OUTCOME_HORIZON_DAYS,
   type DecisionRecord,
@@ -13,6 +13,7 @@ import {
 import type { DebriefResult } from '../../infrastructure/debrief'
 import { formatDeltaPercent, formatMoney } from '../../shared/format'
 import { Button, Card, ProgressBar, QualityGauge, SectionTitle, Tag } from '../../shared/ui'
+import { CampaignSituationPanel } from '../campaign/CampaignSituationPanel'
 
 export function LedgerView({
   run,
@@ -32,6 +33,7 @@ export function LedgerView({
   onDebrief: (decision: DecisionRecord) => Promise<void>
 }) {
   const [pane, setPane] = useState<'quality' | 'result' | 'ledger'>('quality')
+  const [outcomeDetailOpen, setOutcomeDetailOpen] = useState(false)
   const nextDay = getNextPendingEventDay(run)
   const baseline = latestDecision?.afterImmediate ?? run.metrics
   const unexpected = run.ledger.find((event) => event.type === 'delayed_effect' && event.tone !== 'positive')
@@ -51,14 +53,8 @@ export function LedgerView({
   }, [latestDecision])
 
   const outcomeComparison = useMemo((): OutcomeComparison | null => {
-    if (!latestDecision?.outcomeBaseSnapshot) return null
-    return compareOutcomes({
-      liveRun: run,
-      baseSnapshot: latestDecision.outcomeBaseSnapshot,
-      decisionDay: latestDecision.day,
-      batchSize: 11,
-      horizonDays: OUTCOME_HORIZON_DAYS,
-    })
+    if (!latestDecision) return null
+    return compareDecisionOutcomes(run, latestDecision, { batchSize: 11, horizonDays: OUTCOME_HORIZON_DAYS })
   }, [latestDecision, run])
 
   return (
@@ -68,6 +64,8 @@ export function LedgerView({
         <h1>Auswertung & Folgen</h1>
         <p>Prozessqualität und tatsächlicher Ausgang bleiben bewusst getrennt.</p>
       </div>
+
+      <CampaignSituationPanel run={run} />
 
       <div className="segmented" role="tablist" aria-label="Verlaufsansicht">
         <button type="button" className={pane === 'quality' ? 'active' : ''} onClick={() => setPane('quality')}>Auswertung</button>
@@ -109,7 +107,7 @@ export function LedgerView({
                 meta={
                   outcomeComparison.actual.endedEarly
                     ? `Run endete früher (Tag ${outcomeComparison.actual.day})`
-                    : `+${OUTCOME_HORIZON_DAYS} Sim-Tage`
+                    : `+${OUTCOME_HORIZON_DAYS} Sim-Tage · Szenario v${outcomeComparison.scenarioVersion}`
                 }
               />
               <div className="outcome-summary" data-testid="outcome-summary-rows">
@@ -127,12 +125,67 @@ export function LedgerView({
                 </div>
                 <div className="outcome-summary__row">
                   <span>Actual-Perzentil (Cash)</span>
-                  <strong>{outcomeComparison.actualCashPercentile}.</strong>
+                  <strong>{outcomeComparison.actualCashPercentile}. Perzentil</strong>
                 </div>
               </div>
+              <Button
+                block
+                variant="secondary"
+                data-testid="outcome-detail-toggle"
+                onClick={() => setOutcomeDetailOpen((open) => !open)}
+              >
+                {outcomeDetailOpen ? 'Details schließen' : 'Kennzahlen-Details'}
+              </Button>
+              {outcomeDetailOpen ? (
+                <div className="outcome-detail" data-testid="outcome-detail-sheet">
+                  <div className="outcome-summary__row">
+                    <span>Actual Umsatz</span>
+                    <strong>{formatMoney(outcomeComparison.actual.metrics.revenueAnnualCents)}</strong>
+                  </div>
+                  <div className="outcome-summary__row">
+                    <span>Median Umsatz</span>
+                    <strong>{formatMoney(outcomeComparison.median.revenueAnnualCents)}</strong>
+                  </div>
+                  <div className="outcome-summary__row">
+                    <span>Actual EBITDA</span>
+                    <strong>{formatMoney(outcomeComparison.actual.metrics.ebitdaAnnualCents)}</strong>
+                  </div>
+                  <div className="outcome-summary__row">
+                    <span>Vergleichsläufe</span>
+                    <strong>{outcomeComparison.samples.length}</strong>
+                  </div>
+                </div>
+              ) : null}
               <p className="quality-outcome-note" data-testid="outcome-dq-separation">
                 Diese Outcome-Zahlen ändern die Decision Quality nicht — Auswertung bleibt unter „Auswertung“.
               </p>
+            </Card>
+          ) : latestDecision ? (
+            <Card data-testid="long-term-outcome-empty">
+              <p>Für diese Entscheidung liegt noch kein fortgeschriebener 12-Monats-Vergleich vor.</p>
+            </Card>
+          ) : null}
+
+          {outcomeComparison?.counterfactual ? (
+            <Card className="result-card" data-testid="counterfactual-card">
+              <SectionTitle title="Gegenpfad (Was-wäre-wenn)" meta={outcomeComparison.counterfactual.label} />
+              <div className="outcome-summary">
+                <div className="outcome-summary__row">
+                  <span>Cash nach 12 Monaten</span>
+                  <strong>{formatMoney(outcomeComparison.counterfactual.projection.metrics.cashCents)}</strong>
+                </div>
+                <div className="outcome-summary__row">
+                  <span>Status</span>
+                  <strong>
+                    {outcomeComparison.counterfactual.failed
+                      ? 'Fehlgeschlagen / abgebrochen'
+                      : outcomeComparison.counterfactual.projection.endedEarly
+                        ? `Früher beendet (Tag ${outcomeComparison.counterfactual.projection.day})`
+                        : 'Horizont erreicht'}
+                  </strong>
+                </div>
+              </div>
+              <p className="muted">Separater Seed aus dem Pre-Decision-Snapshot — Live-Run und DQ bleiben unverändert.</p>
             </Card>
           ) : null}
 

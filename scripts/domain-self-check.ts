@@ -42,6 +42,8 @@ assert(run.decisions.length === 1, 'no double decision')
 assert((run.decisions[0]?.quality.total ?? 0) > 50, 'decision quality score')
 assert(run.decisions[0]?.contextSnapshot !== undefined, 'decision context snapshot')
 assert(Array.isArray(run.decisions[0]?.quality.evidence.framingSignals), 'dq evidence')
+assert(run.decisions[0]?.outcomeBaseSnapshot !== undefined, 'outcome base snapshot')
+assert(run.decisions[0]?.preDecisionSnapshot !== undefined, 'pre-decision snapshot')
 assert(run.metrics.cashCents < beforeCash, 'capital effect')
 const delayedDue = run.scheduledEvents.find((event) => !event.resolved)?.dueDay
 assert(delayedDue !== undefined, 'delayed event scheduled')

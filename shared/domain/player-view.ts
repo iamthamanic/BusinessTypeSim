@@ -12,6 +12,8 @@ import {
   ensureWorldStateV2,
   getPlayerWorldView,
 } from './world-state.ts'
+import { emptyCampaignState, getCampaignAtVersion } from './campaign.ts'
+import { getPublishedCampaignForScenario, publishedCampaigns } from './campaign-fixtures.ts'
 import type {
   AnalysisDefinition,
   AnalysisResult,
@@ -85,7 +87,7 @@ export function getUnlockedAnalysis(
  * when the bound scenario version publishes one and the snapshot had no `world` yet.
  */
 export function normalizeRunState(
-  run: Omit<RunState, 'world' | 'playerKnowledge' | 'advisorKnowledge' | 'schemaVersion'> & {
+  run: Omit<RunState, 'world' | 'playerKnowledge' | 'advisorKnowledge' | 'schemaVersion' | 'campaign'> & {
     schemaVersion?: 1 | 2
     world?: RunState['world']
     playerKnowledge?: RunState['playerKnowledge']
@@ -94,6 +96,7 @@ export function normalizeRunState(
     completedAnalyses?: RunState['completedAnalyses']
     processedIdempotencyKeys?: RunState['processedIdempotencyKeys']
     decisions?: RunState['decisions']
+    campaign?: RunState['campaign']
   },
 ): RunState {
   const pendingAnalyses = run.pendingAnalyses ?? []
@@ -128,12 +131,21 @@ export function normalizeRunState(
     }
   })
 
+  const published = getPublishedCampaignForScenario(run.scenarioId)
+  const bound =
+    run.campaign !== undefined
+      ? getCampaignAtVersion(publishedCampaigns, run.campaign.campaignId, run.campaign.campaignVersion) ??
+        published
+      : published
+  const campaign = run.campaign ?? emptyCampaignState(bound, run.day)
+
   const withBasics = {
     ...run,
     pendingAnalyses,
     completedAnalyses,
     processedIdempotencyKeys,
     decisions,
+    campaign,
   }
 
   const seedWorld =

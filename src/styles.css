@@ -830,16 +830,28 @@ label > span { font-weight: 700; color: var(--text-primary); }
 .outcome-summary {
   display: grid;
   gap: 10px;
-  margin-top: 12px;
+  margin: 12px 0 16px;
 }
 .outcome-summary__row {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-subtle);
   font-size: 14px;
 }
+.outcome-summary__row:first-child { border-top: 0; padding-top: 0; }
 .outcome-summary__row span { color: var(--text-secondary); }
 .outcome-summary__row strong { font-variant-numeric: tabular-nums; }
+.outcome-detail {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--bg-elevated) 80%, transparent);
+  border: 1px solid var(--border-subtle);
+}
+.outcome-detail .outcome-summary__row:first-child { border-top: 0; padding-top: 0; }
 
 .progress { height: 5px; overflow: hidden; border-radius: 999px; margin-top: 7px; background: var(--border-subtle); }
 .progress span { display: block; height: 100%; background: var(--accent-decision); border-radius: inherit; }
@@ -1210,6 +1222,48 @@ label > span { font-weight: 700; color: var(--text-primary); }
 .unexpected-card {
   border-color: color-mix(in srgb, var(--warning) 45%, var(--border-subtle));
   background: color-mix(in srgb, var(--warning) 8%, var(--bg-surface));
+}
+
+.campaign-panel__clock {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.campaign-panel__active h3 {
+  margin: 8px 0 4px;
+  font-size: 1.05rem;
+}
+
+.campaign-panel__active p,
+.campaign-panel__empty {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.campaign-panel__upcoming {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.campaign-panel__upcoming ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.campaign-panel__upcoming li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.campaign-panel__upcoming small {
+  color: var(--text-muted);
 }
 
 @media (max-width: 520px) {

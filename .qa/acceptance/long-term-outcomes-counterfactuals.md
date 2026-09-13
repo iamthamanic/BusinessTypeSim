@@ -58,7 +58,12 @@ Der Ergebnisbereich zeigt keinen „12 Monate später“-Blick mehr aus Sofortwi
 | 3 | `.qa/evidence/long-term-outcomes-counterfactuals/480-outcome.png` |
 
 ## Implementation Notes
-_(filled after coding)_
+- Domain: `shared/domain/outcomes.ts` — `projectToHorizon`, seeded luck `compareOutcomes`, snapshot capture; `engine.compareDecisionOutcomes` + `projectCounterfactualAlternate` for alternate-action path.
+- Persist: `DecisionRecord.preDecisionSnapshot` + `outcomeBaseSnapshot` (ScenarioVersion-bound); DQ/`contextSnapshot` untouched.
+- UI: Ledger Ergebnis — Sofortwirkung vs 12 Monate (Actual/Median/Expected/Perzentil) + Gegenpfad; detail sheet; DQ separation note.
+- Tests: `tests/outcomes.test.ts` (5), domain self-check snapshot asserts, `e2e/long-term-outcomes-counterfactuals.spec.ts`.
+- Docs: `docs/SIMULATION_MODEL.md` §14.
+- Known limitations: luck batch default UI size 11; ranking metric = cashCents; Expected = mean of samples, Median = per-metric median.
 
 ## Composition Gate
-See `.qa/runs/composition-gate-long-term-outcomes-counterfactuals.md`
+See `.qa/runs/composition-gate-long-term-outcomes-counterfactuals.md` — CLEAR

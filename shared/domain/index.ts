@@ -10,6 +10,8 @@ export type {
   AdvisorDefinition,
   AnalysisDefinition,
   AnalysisResult,
+  CampaignDefinition,
+  CampaignRuntimeState,
   CompanyMetrics,
   CompetitorEntity,
   ContractEntity,
@@ -46,6 +48,11 @@ export type {
   ScenarioDefinition,
   ScenarioId,
   ScheduledEvent,
+  SituationInstance,
+  SituationStatus,
+  SituationTemplate,
+  SituationTrigger,
+  SituationVisibility,
   WorldModules,
 } from './types.ts'
 
@@ -81,10 +88,13 @@ export {
 
 export {
   advanceTime,
+  buildAlternateProposal,
   commitDecision,
+  compareDecisionOutcomes,
   createRun,
   getNextPendingEventDay,
   interpretDecisionLocally,
+  projectCounterfactualAlternate,
   requestAnalysis,
   scoreDecision,
   summarizeMetricDelta,
@@ -134,8 +144,10 @@ export {
   DEFAULT_COMPARISON_BATCH_SIZE,
   captureOutcomeBaseSnapshot,
   compareOutcomes,
+  comparisonSeed,
   projectToHorizon,
   runFromOutcomeSnapshot,
+  type CounterfactualProjection,
   type HorizonProjection,
   type OutcomeBaseSnapshot,
   type OutcomeComparison,
@@ -164,6 +176,32 @@ export {
 } from './world-state.ts'
 
 export { nexoraWorldV2, nordkernWorldV2 } from './world-fixtures.ts'
+
+export {
+  CAMPAIGN_DURATION_MONTHS,
+  CAMPAIGN_SCHEMA_VERSION,
+  DAYS_PER_CAMPAIGN_MONTH,
+  applyCampaignDay,
+  bootstrapCampaignState,
+  campaignMonthFromDay,
+  emptyCampaignState,
+  getActiveSituation,
+  getCampaignAtVersion,
+  getPlayerCampaignView,
+  isSituationEligible,
+  latestCampaignForScenario,
+  openingTemplateFromScenario,
+  resolveActiveSituation,
+  type CampaignCatalog,
+  type PlayerCampaignView,
+  type PlayerSituationView,
+} from './campaign.ts'
+
+export {
+  buildTestCampaign,
+  getPublishedCampaignForScenario,
+  publishedCampaigns,
+} from './campaign-fixtures.ts'
 
 export {
   collectAdvisorToolContext,
