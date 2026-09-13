@@ -1,3 +1,8 @@
+import {
+  ACTION_PARAMS_SCHEMA_VERSION,
+  ensureManagementAction,
+  inferParamsFromText,
+} from './action-params.ts'
 import { getScenario } from './scenarios.ts'
 import type {
   ActionKind,
@@ -211,12 +216,19 @@ export function interpretDecisionLocally(
   const scenario = getScenario(run.scenarioId)
   const combined = `${playerText}\n${rationale}`.trim()
   const inferred = inferActionKind(combined, scenario)
-  const actions: ManagementAction[] = inferred.map((entry, index) => ({
-    id: `action_${run.revision}_${index + 1}`,
-    kind: entry.kind,
-    label: entry.label,
-    sourceText: playerText,
-  }))
+  const paramAmbiguities: string[] = []
+  const actions: ManagementAction[] = inferred.map((entry, index) => {
+    const inferredParams = inferParamsFromText(entry.kind, combined)
+    paramAmbiguities.push(...inferredParams.ambiguities)
+    return {
+      id: `action_${run.revision}_${index + 1}`,
+      kind: entry.kind,
+      label: entry.label,
+      sourceText: playerText,
+      schemaVersion: ACTION_PARAMS_SCHEMA_VERSION,
+      params: inferredParams.params,
+    }
+  })
 
   if (actions.length === 0) {
     actions.push({
@@ -224,6 +236,8 @@ export function interpretDecisionLocally(
       kind: 'prioritize_product',
       label: 'Strategische Prioritäten neu setzen',
       sourceText: playerText,
+      schemaVersion: ACTION_PARAMS_SCHEMA_VERSION,
+      params: {},
     })
   }
 
@@ -231,11 +245,17 @@ export function interpretDecisionLocally(
   const extractedRisks = containsAny(combined, scenario.scoreRubric.riskKeywords)
   const alternativeSignals = containsAny(combined, ['alternativ', 'statt', 'parallel', 'schritt', 'wenn', 'oder', 'pilot'])
   const evidenceRefs = run.completedAnalyses.map((analysis) => analysis.analysisId)
+  const ambiguities = [
+    ...(actions.length === 1 && playerText.length < 40
+      ? ['Die Entscheidung ist knapp formuliert; Umsetzungstiefe bleibt teilweise offen.']
+      : []),
+    ...Array.from(new Set(paramAmbiguities)),
+  ]
 
   return {
     actions,
     assumptions: combined.toLowerCase().includes('annahme') ? ['Spieler benennt explizit Annahmen.'] : [],
-    ambiguities: actions.length === 1 && playerText.length < 40 ? ['Die Entscheidung ist knapp formuliert; Umsetzungstiefe bleibt teilweise offen.'] : [],
+    ambiguities,
     extractedObjectives,
     extractedRisks,
     extractedAlternatives: alternativeSignals,
@@ -296,8 +316,12 @@ export function commitDecision(
   let metrics = { ...run.metrics }
   const decisionId = `decision_${run.revision}_${stableHash(playerText).toString(36)}`
   const newScheduled: ScheduledEvent[] = []
+  const normalizedProposal: ActionProposal = {
+    ...proposal,
+    actions: proposal.actions.map(ensureManagementAction),
+  }
 
-  for (const action of proposal.actions) {
+  for (const action of normalizedProposal.actions) {
     const rule = resolveRule(scenario, action)
     if (!rule) continue
     metrics = addMetricDelta(metrics, rule.effect.metrics)
@@ -316,14 +340,14 @@ export function commitDecision(
     }
   }
 
-  const quality = scoreDecision(run, proposal, playerText, rationale)
+  const quality = scoreDecision(run, normalizedProposal, playerText, rationale)
   const day = run.day + 1
   const decision = {
     id: decisionId,
     day,
     playerText,
     rationale,
-    proposal,
+    proposal: normalizedProposal,
     quality,
     before,
     afterImmediate: metrics,
@@ -336,7 +360,7 @@ export function commitDecision(
       type: 'decision',
       day,
       title: 'Entscheidung committed',
-      body: proposal.actions.map((action) => action.label).join(' · '),
+      body: normalizedProposal.actions.map((action) => action.label).join(' · '),
       tone: 'neutral',
     },
     {

@@ -1,2 +1,4 @@
 evidence/
 test-results/
+queue/state.json
+queue/runs/

@@ -5,6 +5,7 @@
  */
 export type {
   ActionKind,
+  ActionParams,
   ActionProposal,
   AdvisorDefinition,
   AnalysisDefinition,
@@ -24,6 +25,28 @@ export type {
   ScenarioId,
   ScheduledEvent,
 } from './types.ts'
+
+export {
+  ACTION_PARAMS_SCHEMA_VERSION,
+  PARAMETERIZED_ACTION_KINDS,
+  actionKindSchema,
+  actionProposalSchema,
+  allocateCapitalParamsSchema,
+  changeHeadcountPlanParamsSchema,
+  ensureManagementAction,
+  genericActionParamsSchema,
+  inferParamsFromText,
+  isParameterizedActionKind,
+  managementActionSchema,
+  normalizeActionParams,
+  paramsSchemaForKind,
+  parseManagementAction,
+  renegotiateCustomerParamsSchema,
+  restructureOrganizationParamsSchema,
+  setPricingPolicyParamsSchema,
+  startProjectParamsSchema,
+  type ParameterizedActionKind,
+} from './action-params.ts'
 
 export { scenarios, getScenario } from './scenarios.ts'
 

@@ -351,6 +351,8 @@ export function App() {
             proposal={proposal}
             busy={busy}
             phase={decisionPhase}
+            online={online}
+            interpretError={decisionPhase === 'review' && !proposal && notice ? notice : null}
             commitBlockedReason={commitBlockedReason}
             onPhase={setDecisionPhase}
             onDecisionText={setDecisionText}
@@ -359,6 +361,7 @@ export function App() {
             onPrepare={prepareDecision}
             onConfirm={confirmDecision}
             onResetProposal={() => setProposal(null)}
+            onProposalChange={setProposal}
             onOpenTeam={() => setView('team')}
           />
         ) : null}

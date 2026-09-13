@@ -3,6 +3,7 @@
  * Location: shared/domain/player-view.ts
  */
 import { getScenario } from './scenarios.ts'
+import { ensureManagementAction } from './action-params.ts'
 import type {
   AnalysisDefinition,
   AnalysisResult,
@@ -45,7 +46,7 @@ export function getUnlockedAnalysis(
   return run.completedAnalyses.find((item) => item.analysisId === analysisId)
 }
 
-/** Normalize persisted runs that predate pendingAnalyses / idempotency / reveal fields. */
+/** Normalize persisted runs that predate pendingAnalyses / idempotency / reveal fields / action params. */
 export function normalizeRunState(run: RunState): RunState {
   const pendingAnalyses = run.pendingAnalyses ?? []
   const processedIdempotencyKeys = run.processedIdempotencyKeys ?? []
@@ -61,10 +62,18 @@ export function normalizeRunState(run: RunState): RunState {
       confidence: def?.confidence ?? 'medium',
     } satisfies AnalysisResult
   })
+  const decisions = (run.decisions ?? []).map((decision) => ({
+    ...decision,
+    proposal: {
+      ...decision.proposal,
+      actions: decision.proposal.actions.map(ensureManagementAction),
+    },
+  }))
   return {
     ...run,
     pendingAnalyses,
     completedAnalyses,
     processedIdempotencyKeys,
+    decisions,
   }
 }

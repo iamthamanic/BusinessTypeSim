@@ -97,7 +97,16 @@ aiRoutes.post('/', requireAuth, async (c) => {
       {
         role: 'system',
         content:
-          'Interpretiere eine freie CEO-Entscheidung als JSON. Du darfst keinen Spielzustand verändern. Erlaubte kind-Werte: allocate_capital, change_hiring_policy, change_headcount_plan, set_pricing_policy, renegotiate_customer, accept_contract, reject_contract, prioritize_product, start_project, cancel_project, request_analysis, restructure_organization. Gib ausschließlich ein JSON-Objekt mit actions, assumptions, ambiguities, extractedObjectives, extractedRisks, extractedAlternatives, evidenceRefs zurück. Maximal 6 Actions.',
+          'Interpretiere eine freie CEO-Entscheidung als JSON. Du darfst keinen Spielzustand verändern. '
+          + 'Erlaubte kind-Werte: allocate_capital, change_hiring_policy, change_headcount_plan, set_pricing_policy, '
+          + 'renegotiate_customer, accept_contract, reject_contract, prioritize_product, start_project, cancel_project, '
+          + 'request_analysis, restructure_organization. '
+          + 'Jede Action braucht schemaVersion: 1 und params (Objekt). '
+          + 'Für allocate_capital / renegotiate_customer / start_project: amountCents als Integer (Cent, keine Floats), optional targetId, scope, timingDays, conditions, fallback. '
+          + 'Für change_headcount_plan: headcountDelta (Integer). Für set_pricing_policy: priceChangeBps (Integer). '
+          + 'Für start_project zusätzlich optional projectId. Für restructure_organization: orgChange. '
+          + 'Erfinde keine Beträge oder Zahlen — fehlende/unklare Werte weglassen und in ambiguities nennen. '
+          + 'Gib ausschließlich ein JSON-Objekt mit actions, assumptions, ambiguities, extractedObjectives, extractedRisks, extractedAlternatives, evidenceRefs zurück. Maximal 6 Actions.',
       },
       {
         role: 'user',
