@@ -24,6 +24,8 @@
 | `WEB_PORT` | `8088` | Host port for nginx (keep off n8n `5678`) |
 | `PUBLIC_HOST` | `businesstypesim.raccoova.com` | Traefik `Host()` rule for HTTPS |
 | `CORS_ORIGIN` | `https://businesstypesim.raccoova.com` | Tighten to the public HTTPS origin |
+| `PUBLIC_APP_URL` | same as `CORS_ORIGIN` | Canonical app URL for mail/links |
+| `COOKIE_SECURE` | `true` | Set `false` only for local HTTP drills |
 | `TAVILY_API_KEY` | empty | Real-world debrief; omit if unused |
 | `LLM_BASE_URL` | `https://ollama.com/v1` | |
 | `LLM_MODEL` | `gpt-oss:120b` | |
@@ -31,11 +33,36 @@
 | `LLM_TIMEOUT_MS` | `25000` | |
 | `AI_HOURLY_LIMIT` | `30` | |
 
+## VPS-only secrets (not GitHub Actions)
+
+These live in `deploy/.env` on the server (and a password manager). The deploy workflow does **not** overwrite them if you append after the generated block — prefer setting them once on the host and preserving via a local `deploy/.env.ops` merge if you customize the workflow later.
+
+| Name | Purpose |
+|---|---|
+| `BACKUP_ENCRYPTION_KEY` | AES key for `deploy/scripts/backup-postgres.sh` |
+| `OFFSITE_BACKUP_CMD` | Optional shell hook; receives encrypted dump path as `$1` |
+| `BACKUP_DIR` | Default `/var/backups/businesstype` |
+| `BACKUP_RETENTION_DAYS` | Default `14` |
+
+Ops runbook: [`KVM2_OPS.md`](KVM2_OPS.md).
+
+## Pre-flight checklist (before first production deploy)
+
+- [ ] All **Required** secrets present in GitHub Actions
+- [ ] VPS has Docker + Compose plugin; Traefik already handles 80/443
+- [ ] Deploy SSH public key in `authorized_keys`; key is **not** reused as the sole offsite backup key
+- [ ] `WEB_PORT` ≠ `5678` (n8n); Postgres host port stays commented out
+- [ ] `CORS_ORIGIN` / `PUBLIC_HOST` match the live HTTPS hostname
+- [ ] `BACKUP_ENCRYPTION_KEY` stored off-box; cron installed (`install-backup-cron.sh`)
+- [ ] Offsite copy verified once; restore drill scheduled
+- [ ] Uptime check on `/healthz` and `/api/healthz`
+- [ ] `AUTH_DEV_CAPTURE` is `0` (or unset) in production
+
 ## One-time VPS prep
 
 ```bash
 # On the VPS
-sudo mkdir -p /opt/businesstype-sim
+sudo mkdir -p /opt/businesstype-sim /var/backups/businesstype
 # Install Docker + Compose plugin if not already present
 # Add the GitHub deploy public key to authorized_keys for VPS_USER
 # Ensure git is installed; first deploy clones the repo into VPS_DEPLOY_PATH

@@ -97,12 +97,12 @@ Danach stehen `npm run cap:android` und `npm run cap:ios` zur Verfügung.
 
 ### Hostinger self-host (primär)
 
-Siehe [`docs/DEPLOY_VPS.md`](docs/DEPLOY_VPS.md):
+Siehe [`docs/DEPLOY_VPS.md`](docs/DEPLOY_VPS.md) und Produktionsbetrieb [`docs/KVM2_OPS.md`](docs/KVM2_OPS.md):
 
 ```bash
 cd deploy
 cp .env.example .env   # POSTGRES_PASSWORD, JWT_SECRET, OLLAMA_API_KEY
-./bootstrap-vps.sh
+./bootstrap-vps.sh     # compose up + auth SQL + smoke-verify
 ```
 
 Client-Build braucht `VITE_API_URL=/api` (Compose setzt das). Auth ist E-Mail + Passwort gegen die eigene API.
@@ -136,6 +136,7 @@ Noch nicht festgelegt. Die Sichtbarkeit des GitHub-Repositories ersetzt keine Li
 
 ## Recent changes
 
+- **2026-09-13** — KVM2 production ops: Compose limits/health/logs, Postgres backup/restore, smoke-verify, ops runbook (`feat/kvm2-production-ops`)
 - **2026-09-13** — PRD-MVP Integrity: Pending-Analysen, Hidden Info Read-Model, Advisor-Tools, Commit-Idempotenz, Cloud-Offline-Draft, Vitest + Playwright (`feat/prd-mvp-integrity-gaps`)
 - **2026-09-13** — GitHub Actions Deploy-Pipeline für Hostinger (`docs/GITHUB_SECRETS.md`)
 - **2026-09-12** — Domain nach `shared/domain/` verschoben; `supabase/`-Ordner entfernt
