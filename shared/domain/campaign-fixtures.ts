@@ -9,6 +9,7 @@ import {
   type CampaignCatalog,
 } from './campaign.ts'
 import { nordkernCampaignV1, NORDKERN_CAMPAIGN_ID } from './campaigns/nordkern-36m.ts'
+import { nexoraCampaignV1, NEXORA_CAMPAIGN_ID } from './campaigns/nexora-36m.ts'
 import { getScenario } from './scenarios.ts'
 import type { CampaignDefinition, ScenarioId, SituationTemplate } from './types.ts'
 
@@ -92,7 +93,6 @@ function scaffoldForScenario(scenarioId: ScenarioId): CampaignDefinition {
 }
 
 const PLAYABLE_SCAFFOLD: ScenarioId[] = [
-  'nexora-saas',
   'klarwerk-services',
   'heliora-clinic',
   'marktwerk-marketplace',
@@ -101,6 +101,7 @@ const PLAYABLE_SCAFFOLD: ScenarioId[] = [
 ]
 
 const nordkern = nordkernCampaignV1()
+const nexora = nexoraCampaignV1()
 
 /** Immutable published catalog keyed by campaign id. */
 export const publishedCampaigns: CampaignCatalog = {
@@ -111,6 +112,7 @@ export const publishedCampaigns: CampaignCatalog = {
     }),
   ),
   [NORDKERN_CAMPAIGN_ID]: [nordkern],
+  [NEXORA_CAMPAIGN_ID]: [nexora],
 }
 
 export function getPublishedCampaignForScenario(scenarioId: ScenarioId): CampaignDefinition {

@@ -211,6 +211,13 @@ export {
 } from './campaigns/nordkern-36m.ts'
 
 export {
+  NEXORA_CAMPAIGN_ID,
+  buildNexoraSituations,
+  nexoraCampaignV1,
+  nexoraSituationFamilyCount,
+} from './campaigns/nexora-36m.ts'
+
+export {
   collectAdvisorToolContext,
   runAdvisorTool,
   toolsForAdvisor,
