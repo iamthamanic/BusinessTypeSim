@@ -1149,7 +1149,7 @@ label > span { font-weight: 700; color: var(--text-primary); }
 .stepper__item.done { color: var(--positive); border-bottom-color: var(--positive); }
 .stepper__item.done span { border-color: var(--positive); }
 
-.analysis-menu { display: grid; gap: 0; padding: 8px 12px; }
+.analysis-menu { display: grid; gap: 0; padding: 8px 12px; min-width: 0; }
 .analysis-menu__row {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -1157,9 +1157,10 @@ label > span { font-weight: 700; color: var(--text-primary); }
   align-items: center;
   border-bottom: 1px solid var(--border-subtle);
   padding: 14px 4px;
+  min-width: 0;
 }
 .analysis-menu__row:last-child { border-bottom: 0; }
-.analysis-menu__row p { margin: 4px 0; }
+.analysis-menu__row p { margin: 4px 0; overflow-wrap: anywhere; }
 .analysis-menu__row small { color: var(--text-secondary); }
 .analysis-menu__row.is-done { border-left: 2px solid var(--positive); padding-left: 10px; }
 .analysis-icon {
@@ -1230,15 +1231,22 @@ label > span { font-weight: 700; color: var(--text-primary); }
   font-size: 0.875rem;
 }
 
+.campaign-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .campaign-panel__active h3 {
   margin: 8px 0 4px;
   font-size: 1.05rem;
+  overflow-wrap: anywhere;
 }
 
 .campaign-panel__active p,
 .campaign-panel__empty {
   margin: 0;
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
 
 .campaign-panel__upcoming {
@@ -1260,10 +1268,17 @@ label > span { font-weight: 700; color: var(--text-primary); }
   justify-content: space-between;
   gap: 12px;
   font-size: 0.9rem;
+  min-width: 0;
+}
+
+.campaign-panel__upcoming li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .campaign-panel__upcoming small {
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 @media (max-width: 520px) {
@@ -1279,6 +1294,7 @@ label > span { font-weight: 700; color: var(--text-primary); }
   .analysis-row .button { justify-self: end; }
   .analysis-menu__row { grid-template-columns: auto 1fr; }
   .analysis-menu__row .button, .analysis-menu__row .tag { grid-column: 2; justify-self: end; }
+  .analysis-menu__actions { max-width: 100%; }
   .chat-input { grid-template-columns: 1fr auto; }
   .delta-grid { grid-template-columns: 1fr 1fr; }
 }
