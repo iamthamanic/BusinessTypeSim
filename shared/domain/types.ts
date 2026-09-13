@@ -358,6 +358,33 @@ export interface ScheduledEvent {
   outcome?: 'success' | 'failure'
 }
 
+/** Structured semantic signals per DQ dimension (deterministic extraction). */
+export interface DecisionQualityEvidence {
+  framingSignals: string[]
+  informationSignals: string[]
+  alternativeSignals: string[]
+  objectiveSignals: string[]
+  reasoningSignals: string[]
+  executionSignals: string[]
+  /** Penalty applied when text looks like keyword stuffing without structure. */
+  keywordStuffingPenalty: number
+}
+
+/** Frozen player-visible decision context at commit time (DQ must not use later knowledge). */
+export interface DecisionContextSnapshot {
+  day: number
+  deadlineDay: number
+  completedAnalysisIds: string[]
+  pendingAnalysisIds: string[]
+  revealedEntityIds: string[]
+  constraintBlockers: string[]
+  constraintWarnings: string[]
+  actionKinds: string[]
+  playerTextLength: number
+  rationaleLength: number
+  evidence: DecisionQualityEvidence
+}
+
 export interface DecisionQuality {
   framing: number
   information: number
@@ -366,6 +393,7 @@ export interface DecisionQuality {
   reasoning: number
   execution: number
   total: number
+  evidence: DecisionQualityEvidence
 }
 
 export type LedgerEventType =
@@ -396,6 +424,8 @@ export interface DecisionRecord {
   rationale: string
   proposal: ActionProposal
   quality: DecisionQuality
+  /** Knowledge + constraints frozen at commit; later unlocks must not rewrite DQ. */
+  contextSnapshot: DecisionContextSnapshot
   before: CompanyMetrics
   afterImmediate: CompanyMetrics
 }

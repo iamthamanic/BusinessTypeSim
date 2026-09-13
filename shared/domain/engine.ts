@@ -4,7 +4,8 @@ import {
   inferParamsFromText,
 } from './action-params.ts'
 import { ConstraintViolationError, evaluateConstraints, hasConstraintBlockers } from './constraints.ts'
-import { applyEconomicDay, softDeadlineConsequence } from './economic-time.ts'
+import { scoreDecisionSemantic } from './decision-quality.ts'
+import { applyEconomicDay, softDeadlineConsequence } from './economic-tick.ts'
 import { getScenario, getScenarioAtVersion } from './scenarios.ts'
 import type {
   ActionKind,
@@ -92,12 +93,6 @@ export class UnknownAnalysisError extends Error {
     super(`Unknown analysis: ${analysisId}`)
     this.name = 'UnknownAnalysisError'
   }
-}
-
-function geometricMean(values: number[]): number {
-  const sanitized = values.map((value) => clamp(value, 1, 100))
-  const logAverage = sanitized.reduce((sum, value) => sum + Math.log(value), 0) / sanitized.length
-  return Math.round(Math.exp(logAverage))
 }
 
 export function createRun(scenarioId: ScenarioDefinition['id'], seed: string): RunState {
@@ -331,7 +326,10 @@ export function interpretDecisionLocally(
 
   const extractedObjectives = containsAny(combined, scenario.scoreRubric.objectiveKeywords)
   const extractedRisks = containsAny(combined, scenario.scoreRubric.riskKeywords)
-  const alternativeSignals = containsAny(combined, ['alternativ', 'statt', 'parallel', 'schritt', 'wenn', 'oder', 'pilot'])
+  const alternativeSignals = [
+    ...containsAny(combined, ['alternativ', 'statt', 'parallel', 'entweder', 'option']),
+    ...(/pilot/i.test(combined) && /statt|oder|falls|ansonsten/i.test(combined) ? ['pilot-fallback'] : []),
+  ]
   const evidenceRefs = run.completedAnalyses.map((analysis) => analysis.analysisId)
   const ambiguities = [
     ...(actions.length === 1 && playerText.length < 40
@@ -357,27 +355,7 @@ export function scoreDecision(
   playerText: string,
   rationale: string,
 ): DecisionQuality {
-  const scenario = scenarioForRun(run)
-  const combined = `${playerText}\n${rationale}`.toLowerCase()
-  const framingHits = containsAny(combined, scenario.scoreRubric.framingKeywords).length
-  const relevantAnalyses = scenario.scoreRubric.relevantAnalysisIds.filter((id) =>
-    run.completedAnalyses.some((item) => item.analysisId === id),
-  ).length
-  const objectiveHits = proposal.extractedObjectives.length
-  const riskHits = proposal.extractedRisks.length
-  const alternativeHits = proposal.extractedAlternatives.length
-  const hasReasoning = /weil|deshalb|damit|dadurch|um .* zu|risiko|trade.?off/.test(combined)
-  const executionSignals = containsAny(combined, ['zuerst', 'danach', 'pilot', 'monat', 'phase', 'kpi', 'wenn', 'ziel', 'mindest']).length
-
-  const framing = clamp(45 + framingHits * 11 + Math.min(riskHits, 2) * 6, 20, 100)
-  const information = clamp(35 + relevantAnalyses * 18 + Math.min(proposal.evidenceRefs.length, 2) * 5, 20, 100)
-  const alternatives = clamp(38 + alternativeHits * 13 + (proposal.actions.length > 1 ? 14 : 0), 20, 100)
-  const objectives = clamp(42 + objectiveHits * 12, 20, 100)
-  const reasoning = clamp(42 + (hasReasoning ? 24 : 0) + Math.min(riskHits, 3) * 7 + Math.min(objectiveHits, 2) * 5, 20, 100)
-  const execution = clamp(45 + Math.min(executionSignals, 4) * 10 + (proposal.actions.length <= 4 ? 8 : 0), 20, 100)
-  const total = geometricMean([framing, information, alternatives, objectives, reasoning, execution])
-
-  return { framing, information, alternatives, objectives, reasoning, execution, total }
+  return scoreDecisionSemantic(run, proposal, playerText, rationale).quality
 }
 
 function resolveRule(scenario: ScenarioDefinition, action: ManagementAction) {
@@ -433,7 +411,7 @@ export function commitDecision(
     }
   }
 
-  const quality = scoreDecision(run, normalizedProposal, playerText, rationale)
+  const scored = scoreDecisionSemantic(run, normalizedProposal, playerText, rationale)
   const day = run.day + 1
   const decision = {
     id: decisionId,
@@ -441,7 +419,8 @@ export function commitDecision(
     playerText,
     rationale,
     proposal: normalizedProposal,
-    quality,
+    quality: scored.quality,
+    contextSnapshot: scored.context,
     before,
     afterImmediate: metrics,
   }
@@ -469,10 +448,10 @@ export function commitDecision(
       id: `${decisionId}_review`,
       type: 'review',
       day,
-      title: `Decision Quality ${quality.total}/100`,
+      title: `Decision Quality ${scored.quality.total}/100`,
       body: 'Bewertet wird der Entscheidungsprozess mit dem zu diesem Zeitpunkt verfügbaren Wissensstand – nicht das spätere Ergebnis.',
       causeId: decisionId,
-      tone: quality.total >= 75 ? 'positive' : quality.total >= 55 ? 'warning' : 'negative',
+      tone: scored.quality.total >= 75 ? 'positive' : scored.quality.total >= 55 ? 'warning' : 'negative',
     },
   ]
 
@@ -494,6 +473,8 @@ export function commitDecision(
 
 export function advanceTime(run: RunState, days: number): RunState {
   if (days <= 0) return run
+  if (run.status !== 'active') return run
+
   const targetDay = run.day + days
   let metrics = { ...run.metrics }
   let world = run.world
@@ -502,8 +483,12 @@ export function advanceTime(run: RunState, days: number): RunState {
   let scheduledEvents = [...run.scheduledEvents]
   let ledger = [...run.ledger]
 
+  // Per-day stable order: economic tick → analyses → scheduled events → soft deadline.
   for (let day = run.day + 1; day <= targetDay; day += 1) {
-    const tick = applyEconomicDay({ ...run, metrics, world, ledger, scheduledEvents }, day)
+    const tick = applyEconomicDay(
+      { metrics, world, ledger, scheduledEvents, decisions: run.decisions },
+      day,
+    )
     metrics = tick.metrics
     world = tick.world
     ledger = [...ledger, ...tick.ledger]
@@ -517,24 +502,23 @@ export function advanceTime(run: RunState, days: number): RunState {
     scheduledEvents = scheduled.scheduledEvents
     metrics = scheduled.metrics
     ledger = scheduled.ledger
-  }
 
-  const deadline = softDeadlineConsequence({
-    ...run,
-    metrics,
-    ledger,
-    scheduledEvents,
-  }, targetDay)
-  metrics = addMetricDelta(metrics, deadline.metrics)
-  ledger = [...ledger, ...deadline.ledger]
-  scheduledEvents = [...scheduledEvents, ...deadline.scheduledEvents]
-
-  // Resolve deadline follow-ups that became due within the same advance window.
-  for (let day = run.day + 1; day <= targetDay; day += 1) {
-    const scheduled = resolveScheduledEventsForDay(run, day, scheduledEvents, metrics, ledger)
-    scheduledEvents = scheduled.scheduledEvents
-    metrics = scheduled.metrics
-    ledger = scheduled.ledger
+    const deadline = softDeadlineConsequence(
+      {
+        metrics,
+        ledger,
+        scheduledEvents,
+        decisions: run.decisions,
+        deadlineDay: run.deadlineDay,
+        seed: run.seed,
+      },
+      day,
+    )
+    if (deadline.ledger.length > 0 || deadline.scheduledEvents.length > 0) {
+      metrics = addMetricDelta(metrics, deadline.metrics)
+      ledger = [...ledger, ...deadline.ledger]
+      scheduledEvents = [...scheduledEvents, ...deadline.scheduledEvents]
+    }
   }
 
   return withFailureStatus({
@@ -576,6 +560,14 @@ function formatSignedMoney(cents: number): string {
 export function getNextPendingEventDay(run: RunState): number | null {
   const eventDays = run.scheduledEvents.filter((event) => !event.resolved).map((event) => event.dueDay)
   const analysisDays = run.pendingAnalyses.map((item) => item.availableAtDay)
-  const pending = [...eventDays, ...analysisDays]
+  const contractDays = run.world.contracts
+    .filter((contract) => contract.lifecycle === 'active' && contract.renewalDay > run.day)
+    .map((contract) => contract.renewalDay)
+  const deadlineDays: number[] = []
+  if (run.status === 'active' && run.decisions.length === 0) {
+    if (run.day < run.deadlineDay) deadlineDays.push(run.deadlineDay)
+    else if (run.day === run.deadlineDay) deadlineDays.push(run.deadlineDay + 1)
+  }
+  const pending = [...eventDays, ...analysisDays, ...contractDays, ...deadlineDays]
   return pending.length === 0 ? null : Math.min(...pending)
 }

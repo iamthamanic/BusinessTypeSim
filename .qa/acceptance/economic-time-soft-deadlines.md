@@ -58,10 +58,15 @@ Zeit soll eine echte Managementressource sein. `advanceTime()` schreibt wiederke
 | 3 | `.qa/evidence/economic-time-soft-deadlines/03-ledger-consequences.png` |
 
 ## Implementation Notes
-<!-- filled after coding -->
+- Domain: `shared/domain/economic-tick.ts` (shim `economic-time.ts`) — per-day Economic Tick (cash=EBITDA/365, payroll/revenue components, project progress, contract renewal, hiring-pipeline capacity) + soft deadline miss (`deadline_missed` + offer/customer scheduled events).
+- Engine: `advanceTime` day loop order = economic → analyses (id) → scheduled events (id) → soft deadline; `getNextPendingEventDay` includes deadline crossing + contract renewals; revision bumped once per advance.
+- Server: existing `game` advance op already calls domain `advanceTime` (auth + revision conflict unchanged).
+- UI: Decision/Home deadline panel; analysis “Nach Frist” warning; Ledger deadline-consequence card; offline disables advance.
+- Tests: `tests/economic-time.test.ts` (8), `e2e/economic-time-soft-deadlines.spec.ts`, domain self-check asserts.
+- Known limitations: soft deadline scoped to initial situation (`decisions.length === 0`); no per-employee microsimulation.
 
 ## Composition Gate
-- HEAD_SHA: pending
-- Verdict: pending
+- HEAD_SHA: WORKTREE
+- Verdict: CLEAR
 - Proof: `.qa/runs/composition-gate-economic-time-soft-deadlines.md`
 - Skip reason: n/a

@@ -195,7 +195,7 @@ Damit wird spätere Bewertung nicht durch nachträglich bekannt gewordene Inform
 
 ## 13. Scoring
 
-Sechs Subscores 0–100. Semantische Extraktion kommt aus AI, Score-Regeln sind deterministisch/konfiguriert.
+Sechs Subscores 0–100. Semantische Extraktion liefert schema-validierte Evidence (lokal regelbasiert oder LLM-assistiert); Score-Regeln sind deterministisch/konfiguriert und vergeben keine LLM-Noten. Keyword-Stuffing ohne strukturelle Signale wird abgestraft.
 
 Gesamt:
 
@@ -203,7 +203,7 @@ Gesamt:
 geometric_mean(framing, information, alternatives, objectives, reasoning, execution)
 ```
 
-Score-Definitionen müssen scenario-spezifische Rubrics erlauben, aber gemeinsame Skalen verwenden.
+Score-Definitionen müssen scenario-spezifische Rubrics erlauben, aber gemeinsame Skalen verwenden. `DecisionContextSnapshot` friert den Wissensstand beim Commit ein.
 
 ## 14. Snapshots and replay
 

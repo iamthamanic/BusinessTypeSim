@@ -1,5 +1,5 @@
 /** Home — active Decision Room entry (mockup Decision Room lite on Home). */
-import { getScenarioAtVersion, type RunState } from '../../domain'
+import { daysUntilDeadline, getScenarioAtVersion, type RunState } from '../../domain'
 import { Button, Card, MetricTile, SectionTitle, Tag } from '../../shared/ui'
 import { formatMoney } from '../../shared/format'
 
@@ -15,14 +15,23 @@ export function HomeView({
   onGoAnalyses: () => void
 }) {
   const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
-  const daysLeft = Math.max(0, run.deadlineDay - run.day)
+  const daysLeft = daysUntilDeadline(run)
   const latest = run.ledger.at(-1)
+  const deadlineMissed = run.ledger.some((event) => event.id === 'deadline_missed')
 
   return (
     <div className="screen-stack">
-      <section className="priority-banner">
-        <Tag tone="negative">Hohe Priorität</Tag>
-        <span>{daysLeft} Tage verbleibend</span>
+      <section className={`priority-banner${daysLeft <= 0 ? ' priority-banner--overdue' : ''}`} data-testid="home-deadline-banner">
+        <Tag tone={deadlineMissed || daysLeft <= 0 ? 'negative' : 'warning'}>
+          {deadlineMissed ? 'Frist verpasst' : daysLeft <= 0 ? 'Frist erreicht' : 'Hohe Priorität'}
+        </Tag>
+        <div className="deadline" aria-live="polite">
+          <span>{Math.max(0, daysLeft)}</span>
+          <div>
+            <strong>{daysLeft < 0 ? 'Tage überfällig' : 'Tage verbleibend'}</strong>
+            <small>{deadlineMissed ? 'Konsequenzen im Verlauf sichtbar' : `Entscheidung bis Tag ${run.deadlineDay}`}</small>
+          </div>
+        </div>
       </section>
 
       <section className="home-hero">
@@ -37,24 +46,15 @@ export function HomeView({
 
       <Card className="action-stack">
         <button type="button" className="action-row" onClick={onGoTeam}>
-          <div>
-            <strong>Mit dem Team sprechen</strong>
-            <span>Advisors befragen</span>
-          </div>
+          <div><strong>Mit dem Team sprechen</strong><span>Advisors befragen</span></div>
           <span className="action-row__chevron" aria-hidden="true">›</span>
         </button>
         <button type="button" className="action-row" onClick={onGoAnalyses}>
-          <div>
-            <strong>Weitere Informationen anfordern</strong>
-            <span>Analysen freischalten</span>
-          </div>
+          <div><strong>Weitere Informationen anfordern</strong><span>Analysen freischalten</span></div>
           <span className="action-row__chevron" aria-hidden="true">›</span>
         </button>
         <button type="button" className="action-row" onClick={onGoDecision}>
-          <div>
-            <strong>Entscheidung treffen</strong>
-            <span>Plan formulieren · 3 Schritte</span>
-          </div>
+          <div><strong>Entscheidung treffen</strong><span>Plan formulieren · 3 Schritte</span></div>
           <span className="action-row__chevron" aria-hidden="true">›</span>
         </button>
       </Card>

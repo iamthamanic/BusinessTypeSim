@@ -809,6 +809,24 @@ label > span { font-weight: 700; color: var(--text-primary); }
 .quality-gauge__label span { color: var(--text-secondary); font-size: 13px; }
 .quality-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 18px; margin-top: 20px; }
 .quality-grid > div > div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.quality-evidence {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.quality-evidence li {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.quality-evidence__empty { font-style: italic; opacity: 0.8; }
+.quality-outcome-note {
+  margin: 16px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
 .progress { height: 5px; overflow: hidden; border-radius: 999px; margin-top: 7px; background: var(--border-subtle); }
 .progress span { display: block; height: 100%; background: var(--accent-decision); border-radius: inherit; }
 
@@ -937,7 +955,19 @@ label > span { font-weight: 700; color: var(--text-primary); }
   padding: 12px 14px;
   color: var(--text-secondary);
   font-weight: 700;
+  flex-wrap: wrap;
 }
+.priority-banner--overdue {
+  border-color: color-mix(in srgb, var(--negative) 70%, var(--border-subtle));
+  background: color-mix(in srgb, var(--negative) 18%, var(--bg-surface));
+}
+.priority-banner .deadline { margin-left: auto; }
+.priority-banner .deadline > span { font-size: clamp(28px, 8vw, 40px); color: var(--text-primary); }
+.analysis-menu__actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.deadline-consequence-card { display: grid; gap: 12px; border-color: color-mix(in srgb, var(--negative) 45%, var(--border-subtle)); }
+.deadline-consequence-card__item h3 { margin: 4px 0; }
+.ledger-item--deadline { border-left: 2px solid var(--negative); padding-left: 10px; }
+.ledger-item--economic { border-left: 2px solid color-mix(in srgb, var(--accent-decision) 50%, var(--border-subtle)); padding-left: 10px; }
 .contract-chip {
   display: grid;
   gap: 4px;
