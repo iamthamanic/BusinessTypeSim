@@ -11,6 +11,6 @@ Publish immutable Nexora SaaS 36-month CampaignVersion with ≥35 families and s
 - [x] typed-strict clean
 
 ## Composition Gate
-- HEAD_SHA: WORKTREE
+- HEAD_SHA: da99b7e297f448547669135d61c5f41eb91d79a3
 - Verdict: CLEAR
 - Proof: `.qa/runs/composition-gate-nexora-36m-campaign.md`
