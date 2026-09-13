@@ -177,6 +177,7 @@ export function DecisionView({
 
         {phase === 'review' ? (
           <ProposalReviewCard
+            run={run}
             proposal={proposal}
             busy={busy}
             online={online}

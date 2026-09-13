@@ -90,6 +90,19 @@ export {
 } from './engine.ts'
 
 export {
+  ConstraintViolationError,
+  actionCashDemandCents,
+  availableCashCents,
+  evaluateConstraints,
+  hasConstraintBlockers,
+  reservedCashCents,
+  type ConstraintCode,
+  type ConstraintEvaluation,
+  type ConstraintIssue,
+  type ConstraintSeverity,
+} from './constraints.ts'
+
+export {
   getPlayerRunWorld,
   getPlayerScenario,
   getUnlockedAnalysis,

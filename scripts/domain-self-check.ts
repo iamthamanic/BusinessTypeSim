@@ -2,6 +2,7 @@ import {
   advanceTime,
   commitDecision,
   createRun,
+  evaluateConstraints,
   getNextPendingEventDay,
   interpretDecisionLocally,
   requestAnalysis,
@@ -28,6 +29,8 @@ const playerText = 'Wir automatisieren zuerst Thüringen als Pilot und verhandel
 const rationale = 'Damit verbessern wir Marge und Kapazität schrittweise. Risiko sind Cash, Umsetzung und Lidl-Reaktion; deshalb keine Massenentlassung, sondern Fluktuation.'
 const proposal = interpretDecisionLocally(run, playerText, rationale)
 assert(proposal.actions.length >= 2, 'multi-action interpretation')
+const constraints = evaluateConstraints(run, proposal)
+assert(constraints.blockers.length === 0, 'self-check proposal has no blockers')
 const beforeCash = run.metrics.cashCents
 const idem = 'self-check-commit-key-001'
 run = commitDecision(run, playerText, rationale, proposal, idem)

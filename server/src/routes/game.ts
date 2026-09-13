@@ -8,6 +8,7 @@ import { interpretOwnedRunLookup } from '../owned-run.ts'
 import {
   advanceTime,
   commitDecision,
+  ConstraintViolationError,
   createRun,
   normalizeRunState,
   requestAnalysis,
@@ -103,6 +104,16 @@ gameRoutes.post('/', requireAuth, async (c) => {
   } catch (error) {
     if (error instanceof UnknownAnalysisError) {
       return c.json({ error: error.code }, 400)
+    }
+    if (error instanceof ConstraintViolationError) {
+      return c.json(
+        {
+          error: error.code,
+          blockers: error.evaluation.blockers,
+          warnings: error.evaluation.warnings,
+        },
+        400,
+      )
     }
     console.error('game error', error instanceof Error ? error.message : 'unknown')
     return c.json({ error: 'INTERNAL_ERROR' }, 500)
