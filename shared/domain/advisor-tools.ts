@@ -3,19 +3,22 @@
  * Location: shared/domain/advisor-tools.ts
  */
 import type { AdvisorDefinition, RunState } from './types.ts'
-import { getScenario } from './scenarios.ts'
+import { getScenarioAtVersion } from './scenarios.ts'
+import { getAdvisorWorldView, playerWorldContextSummary } from './world-state.ts'
 
 export type AdvisorToolId =
   | 'get_company_metrics'
   | 'get_completed_analyses'
   | 'get_ledger_summary'
   | 'get_deadline'
+  | 'get_visible_world'
 
 const TOOL_DOMAINS: Record<AdvisorToolId, string[]> = {
   get_company_metrics: ['finance', 'runway', 'margin', 'capex', 'pricing', 'retail', 'operations'],
   get_completed_analyses: ['finance', 'operations', 'product', 'technical', 'sales', 'customer', 'people', 'quality', 'marketplace', 'brand', 'cx', 'risk', 'governance', 'organization'],
   get_ledger_summary: ['finance', 'operations', 'sales', 'customer', 'people', 'quality', 'risk', 'governance'],
   get_deadline: ['finance', 'operations', 'sales', 'product', 'people', 'risk'],
+  get_visible_world: ['finance', 'operations', 'product', 'technical', 'sales', 'customer', 'people', 'quality', 'marketplace', 'brand', 'cx', 'risk', 'governance', 'organization'],
 }
 
 export function toolsForAdvisor(advisor: AdvisorDefinition): AdvisorToolId[] {
@@ -29,7 +32,7 @@ export function runAdvisorTool(
   advisorId: string,
   toolId: AdvisorToolId,
 ): { ok: true; toolId: AdvisorToolId; payload: string } | { ok: false; reason: string } {
-  const scenario = getScenario(run.scenarioId)
+  const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
   const advisor = scenario.advisors.find((item) => item.id === advisorId)
   if (!advisor) return { ok: false, reason: 'Unbekannter Advisor.' }
 
@@ -62,6 +65,15 @@ export function runAdvisorTool(
     return { ok: true, toolId, payload: recent.length ? recent.join('\n') : 'Ledger leer.' }
   }
 
+  if (toolId === 'get_visible_world') {
+    const view = getAdvisorWorldView(run)
+    return {
+      ok: true,
+      toolId,
+      payload: JSON.stringify(playerWorldContextSummary(view)),
+    }
+  }
+
   const daysLeft = Math.max(0, run.deadlineDay - run.day)
   return {
     ok: true,
@@ -72,7 +84,7 @@ export function runAdvisorTool(
 
 /** Gather tool payloads for an advisor turn (read-only context block). */
 export function collectAdvisorToolContext(run: RunState, advisorId: string): string {
-  const scenario = getScenario(run.scenarioId)
+  const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
   const advisor = scenario.advisors.find((item) => item.id === advisorId)
   if (!advisor) return 'Advisor unbekannt.'
 

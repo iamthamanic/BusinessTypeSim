@@ -120,7 +120,7 @@ export function App() {
     setRunMode('cloud')
   }, [run?.runId])
 
-  const scenario = run ? getPlayerScenario(run.scenarioId) : null
+  const scenario = run ? getPlayerScenario(run.scenarioId, run.scenarioVersion) : null
   const latestDecision = run?.decisions.at(-1) ?? null
   const commitBlockedReason =
     runMode === 'cloud' && !online

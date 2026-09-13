@@ -252,6 +252,8 @@ Aggregierte Module sind ausreichend, solange der Spieler plausible CEO-Trade-off
 
 ## 18. MVP implementation subset
 
-Der implementierte V1-Core verwendet absichtlich einen kleineren `RunState` statt bereits alle späteren WorldState-Module zu materialisieren. Er enthält Scenario-Version, Seed, Simulations-Tag, aggregierte CompanyMetrics, abgeschlossene Analysen, DecisionRecord, ScheduledEvents und Ledger. Dieselbe Engine trägt SaaS, Produktion und Professional Services.
+Der Core startete mit einem kleineren `RunState` (Scenario-Version, Seed, Simulations-Tag, aggregierte CompanyMetrics, Analysen, DecisionRecord, ScheduledEvents, Ledger).
+
+**World State V2** (`schemaVersion: 2`) erweitert denselben JSONB-Snapshot um typisierte Module (`customers`, `products`, `departments`, `projects`, `keyPeople`, `locations`, `contracts`, `competitors`) plus getrennte `playerKnowledge` / `advisorKnowledge`. Player-/Advisor-Read-Models filtern `hidden` / `researchable` / `system_only`. Veröffentlichte Scenario-Versionen bleiben immutable; Runs binden `scenarioVersion`. V1-Snapshots werden deterministisch normalisiert (leere Module, wenn die gebundene Scenario-Version kein `initialWorld` hat).
 
 Cloud-Runs werden als JSONB-State plus relationaler Run-Metadaten persistiert. Eine serverseitige `revision` schützt parallele Mutationen per optimistischer Versionskontrolle. Der lokale Demo-Modus nutzt denselben Core ohne Serverautorität und ist nicht für Competitive/Leaderboard-Wertung vorgesehen.

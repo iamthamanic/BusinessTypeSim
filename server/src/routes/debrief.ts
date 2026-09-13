@@ -5,7 +5,7 @@ import { requireAuth, type AppVariables } from '../auth.ts'
 import { pool } from '../db.ts'
 import { env } from '../env.ts'
 import { claimAiRequest } from '../rate-limit.ts'
-import { getScenario, type RunState } from '../../../shared/domain/index.ts'
+import { getScenarioAtVersion, type RunState } from '../../../shared/domain/index.ts'
 
 const inputSchema = z.object({
   runId: z.string().min(1),
@@ -39,7 +39,7 @@ debriefRoutes.post('/', requireAuth, async (c) => {
     if (!run) return c.json({ error: 'RUN_NOT_FOUND' }, 404)
     const decision = run.decisions.find((candidate) => candidate.id === parsed.data.decisionId)
     if (!decision) return c.json({ error: 'DECISION_NOT_FOUND' }, 404)
-    const scenario = getScenario(run.scenarioId)
+    const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
 
     const query = `${scenario.industry} company strategy case ${decision.proposal.actions.map((action) => action.label).join(' ')} real example`
     const response = await fetch('https://api.tavily.com/search', {

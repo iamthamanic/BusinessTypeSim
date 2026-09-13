@@ -1,13 +1,18 @@
 /**
- * Player read-model helpers — strip spoiler fields from scenario catalogs.
+ * Player read-model helpers — strip spoiler fields from scenario catalogs + world.
  * Location: shared/domain/player-view.ts
  */
-import { getScenario } from './scenarios.ts'
+import { getScenario, getScenarioAtVersion } from './scenarios.ts'
 import { ensureManagementAction } from './action-params.ts'
+import {
+  ensureWorldStateV2,
+  getPlayerWorldView,
+} from './world-state.ts'
 import type {
   AnalysisDefinition,
   AnalysisResult,
   PlayerAnalysisDefinition,
+  PlayerWorldView,
   RunState,
   ScenarioDefinition,
   ScenarioId,
@@ -24,17 +29,39 @@ export function toPlayerAnalysis(analysis: AnalysisDefinition): PlayerAnalysisDe
   }
 }
 
-export function listPlayerAnalyses(scenarioId: ScenarioId): PlayerAnalysisDefinition[] {
-  return getScenario(scenarioId).analyses.map(toPlayerAnalysis)
+export function listPlayerAnalyses(scenarioId: ScenarioId, version?: number): PlayerAnalysisDefinition[] {
+  const scenario =
+    version === undefined ? getScenario(scenarioId) : getScenarioAtVersion(scenarioId, version)
+  return scenario.analyses.map(toPlayerAnalysis)
 }
 
 /** Scenario view safe for UI — analyses without result bodies. */
-export function getPlayerScenario(scenarioId: ScenarioId): Omit<ScenarioDefinition, 'analyses'> & {
+export function getPlayerScenario(
+  scenarioId: ScenarioId,
+  version?: number,
+): Omit<ScenarioDefinition, 'analyses' | 'initialWorld'> & {
   analyses: PlayerAnalysisDefinition[]
 } {
-  const scenario = getScenario(scenarioId)
+  const scenario =
+    version === undefined ? getScenario(scenarioId) : getScenarioAtVersion(scenarioId, version)
   return {
-    ...scenario,
+    id: scenario.id,
+    version: scenario.version,
+    companyName: scenario.companyName,
+    industry: scenario.industry,
+    stage: scenario.stage,
+    scaleLabel: scenario.scaleLabel,
+    headline: scenario.headline,
+    description: scenario.description,
+    decisionTitle: scenario.decisionTitle,
+    decisionContext: scenario.decisionContext,
+    deadlineDays: scenario.deadlineDays,
+    startingMetrics: scenario.startingMetrics,
+    metricDefinitions: scenario.metricDefinitions,
+    knownFacts: scenario.knownFacts,
+    actionRules: scenario.actionRules,
+    scoreRubric: scenario.scoreRubric,
+    advisors: scenario.advisors,
     analyses: scenario.analyses.map(toPlayerAnalysis),
   }
 }
@@ -46,13 +73,28 @@ export function getUnlockedAnalysis(
   return run.completedAnalyses.find((item) => item.analysisId === analysisId)
 }
 
-/** Normalize persisted runs that predate pendingAnalyses / idempotency / reveal fields / action params. */
-export function normalizeRunState(run: RunState): RunState {
+/**
+ * Normalize persisted runs: analysis fields, action params, and World State V2.
+ * V1 snapshots upgrade deterministically; scenario-bound `initialWorld` is only seeded
+ * when the bound scenario version publishes one and the snapshot had no `world` yet.
+ */
+export function normalizeRunState(
+  run: Omit<RunState, 'world' | 'playerKnowledge' | 'advisorKnowledge' | 'schemaVersion'> & {
+    schemaVersion?: 1 | 2
+    world?: RunState['world']
+    playerKnowledge?: RunState['playerKnowledge']
+    advisorKnowledge?: RunState['advisorKnowledge']
+    pendingAnalyses?: RunState['pendingAnalyses']
+    completedAnalyses?: RunState['completedAnalyses']
+    processedIdempotencyKeys?: RunState['processedIdempotencyKeys']
+    decisions?: RunState['decisions']
+  },
+): RunState {
   const pendingAnalyses = run.pendingAnalyses ?? []
   const processedIdempotencyKeys = run.processedIdempotencyKeys ?? []
+  const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
   const completedAnalyses = (run.completedAnalyses ?? []).map((item) => {
     if ('resultBody' in item && item.resultBody) return item as AnalysisResult
-    const scenario = getScenario(run.scenarioId)
     const def = scenario.analyses.find((candidate) => candidate.id === item.analysisId)
     return {
       analysisId: item.analysisId,
@@ -69,11 +111,24 @@ export function normalizeRunState(run: RunState): RunState {
       actions: decision.proposal.actions.map(ensureManagementAction),
     },
   }))
-  return {
+
+  const withBasics = {
     ...run,
     pendingAnalyses,
     completedAnalyses,
     processedIdempotencyKeys,
     decisions,
   }
+
+  const seedWorld =
+    run.world === undefined && scenario.initialWorld !== undefined
+      ? scenario.initialWorld
+      : undefined
+
+  return ensureWorldStateV2(withBasics, seedWorld)
+}
+
+/** Convenience: player-safe world modules for UI. */
+export function getPlayerRunWorld(run: RunState): PlayerWorldView {
+  return getPlayerWorldView(normalizeRunState(run))
 }

@@ -107,6 +107,172 @@ export interface AdvisorDefinition {
   domains: string[]
 }
 
+/** Visibility for entities / sensitive fields (SIMULATION_MODEL §9–10). */
+export type KnowledgeVisibility =
+  | 'player_visible'
+  | 'advisor_visible'
+  | 'researchable'
+  | 'hidden'
+  | 'system_only'
+
+/** Lifecycle so ended entities stay historically referenceable. */
+export type EntityLifecycle = 'active' | 'ended' | 'cancelled' | 'tombstoned'
+
+export interface WorldEntityBase {
+  id: string
+  name: string
+  lifecycle: EntityLifecycle
+  visibility: KnowledgeVisibility
+}
+
+export interface CustomerEntity extends WorldEntityBase {
+  segment: string
+  revenueShareBps: number
+  /** Optional; may be hidden/researchable independently of entity visibility. */
+  contributionMarginBps?: number
+  contributionMarginVisibility?: KnowledgeVisibility
+}
+
+export interface ProductEntity extends WorldEntityBase {
+  category: string
+  annualRevenueCents: number
+}
+
+export interface DepartmentEntity extends WorldEntityBase {
+  headcount: number
+  focus: string
+}
+
+export interface ProjectEntity extends WorldEntityBase {
+  budgetCents: number
+  progressBps: number
+}
+
+export interface KeyPersonEntity extends WorldEntityBase {
+  role: string
+  departmentId?: string
+  flightRiskBps?: number
+  flightRiskVisibility?: KnowledgeVisibility
+}
+
+export interface LocationEntity extends WorldEntityBase {
+  kind: 'plant' | 'office' | 'warehouse' | 'other'
+  utilizationBps: number
+}
+
+export interface ContractEntity extends WorldEntityBase {
+  counterpartyId: string
+  renewalDay: number
+  annualValueCents: number
+}
+
+export interface CompetitorEntity extends WorldEntityBase {
+  segmentFocus: string
+  threatBps?: number
+  threatVisibility?: KnowledgeVisibility
+}
+
+/**
+ * Compact World State V2 modules — empty arrays = module disabled for the industry
+ * (never filled with fake placeholder entities).
+ */
+export interface WorldModules {
+  customers: CustomerEntity[]
+  products: ProductEntity[]
+  departments: DepartmentEntity[]
+  projects: ProjectEntity[]
+  keyPeople: KeyPersonEntity[]
+  locations: LocationEntity[]
+  contracts: ContractEntity[]
+  competitors: CompetitorEntity[]
+}
+
+/** Player-/advisor-revealed knowledge — does not mutate truth. */
+export interface KnowledgeSet {
+  revealedEntityIds: string[]
+  /** Field keys as `${entityId}:${field}` e.g. `cust_lidl:contributionMarginBps`. */
+  revealedFieldKeys: string[]
+}
+
+/** Player-safe entity summaries (no hidden/researchable fields). */
+export interface PlayerCustomerView {
+  id: string
+  name: string
+  lifecycle: EntityLifecycle
+  segment: string
+  revenueShareBps: number
+  contributionMarginBps?: number
+}
+
+export interface PlayerProductView {
+  id: string
+  name: string
+  lifecycle: EntityLifecycle
+  category: string
+  annualRevenueCents: number
+}
+
+export interface PlayerDepartmentView {
+  id: string
+  name: string
+  lifecycle: EntityLifecycle
+  headcount: number
+  focus: string
+}
+
+export interface PlayerProjectView {
+  id: string
+  name: string
+  lifecycle: EntityLifecycle
+  budgetCents: number
+  progressBps: number
+}
+
+export interface PlayerKeyPersonView {
+  id: string
+  name: string
+  lifecycle: EntityLifecycle
+  role: string
+  departmentId?: string
+  flightRiskBps?: number
+}
+
+export interface PlayerLocationView {
+  id: string
+  name: string
+  lifecycle: EntityLifecycle
+  kind: LocationEntity['kind']
+  utilizationBps: number
+}
+
+export interface PlayerContractView {
+  id: string
+  name: string
+  lifecycle: EntityLifecycle
+  counterpartyId: string
+  renewalDay: number
+  annualValueCents: number
+}
+
+export interface PlayerCompetitorView {
+  id: string
+  name: string
+  lifecycle: EntityLifecycle
+  segmentFocus: string
+  threatBps?: number
+}
+
+export interface PlayerWorldView {
+  customers: PlayerCustomerView[]
+  products: PlayerProductView[]
+  departments: PlayerDepartmentView[]
+  projects: PlayerProjectView[]
+  keyPeople: PlayerKeyPersonView[]
+  locations: PlayerLocationView[]
+  contracts: PlayerContractView[]
+  competitors: PlayerCompetitorView[]
+}
+
 export interface ScenarioDefinition {
   id: ScenarioId
   version: number
@@ -126,6 +292,11 @@ export interface ScenarioDefinition {
   actionRules: ScenarioActionRule[]
   scoreRubric: ScoreRubric
   advisors: AdvisorDefinition[]
+  /**
+   * World State V2 seed for this published scenario version.
+   * Absent/empty modules = disabled for this industry snapshot.
+   */
+  initialWorld?: WorldModules
 }
 
 /**
@@ -227,7 +398,8 @@ export interface DecisionRecord {
 }
 
 export interface RunState {
-  schemaVersion: 1
+  /** 1 = legacy metrics-only; 2 = World State modules + knowledge sets. */
+  schemaVersion: 1 | 2
   runId: string
   scenarioId: ScenarioId
   scenarioVersion: number
@@ -243,4 +415,8 @@ export interface RunState {
   ledger: LedgerEvent[]
   processedIdempotencyKeys: string[]
   status: 'active' | 'completed' | 'failed'
+  /** Present after normalize / createRun for schemaVersion 2. */
+  world: WorldModules
+  playerKnowledge: KnowledgeSet
+  advisorKnowledge: KnowledgeSet
 }

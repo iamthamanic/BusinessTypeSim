@@ -17,7 +17,7 @@ export function TeamView({
   threads: AdvisorThread[]
   onAsk: (advisorId: string, question: string) => Promise<void>
 }) {
-  const scenario = getPlayerScenario(run.scenarioId)
+  const scenario = getPlayerScenario(run.scenarioId, run.scenarioVersion)
   const [activeId, setActiveId] = useState(scenario.advisors[0]?.id ?? '')
   const [question, setQuestion] = useState('')
   const active = scenario.advisors.find((advisor) => advisor.id === activeId) ?? scenario.advisors[0]

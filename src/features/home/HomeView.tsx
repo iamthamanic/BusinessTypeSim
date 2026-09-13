@@ -1,5 +1,5 @@
 /** Home — active Decision Room entry (mockup Decision Room lite on Home). */
-import { getScenario, type RunState } from '../../domain'
+import { getScenarioAtVersion, type RunState } from '../../domain'
 import { Button, Card, MetricTile, SectionTitle, Tag } from '../../shared/ui'
 import { formatMoney } from '../../shared/format'
 
@@ -14,7 +14,7 @@ export function HomeView({
   onGoTeam: () => void
   onGoAnalyses: () => void
 }) {
-  const scenario = getScenario(run.scenarioId)
+  const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
   const daysLeft = Math.max(0, run.deadlineDay - run.day)
   const latest = run.ledger.at(-1)
 

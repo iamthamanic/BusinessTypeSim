@@ -9,8 +9,10 @@ import { interpretOwnedRunLookup } from '../owned-run.ts'
 import { claimAiRequest } from '../rate-limit.ts'
 import {
   collectAdvisorToolContext,
-  getScenario,
+  getScenarioAtVersion,
+  getPlayerWorldView,
   normalizeRunState,
+  playerWorldContextSummary,
   type ActionProposal,
   type RunState,
 } from '../../../shared/domain/index.ts'
@@ -31,7 +33,7 @@ const inputSchema = z.discriminatedUnion('mode', [
 ])
 
 function visibleContext(run: RunState) {
-  const scenario = getScenario(run.scenarioId)
+  const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
   const analyses = run.completedAnalyses.map((item) => ({
     id: item.analysisId,
     title: item.resultTitle,
@@ -46,6 +48,7 @@ function visibleContext(run: RunState) {
     metrics: run.metrics,
     knownFacts: scenario.knownFacts,
     analyses,
+    world: playerWorldContextSummary(getPlayerWorldView(run)),
   }
 }
 
@@ -73,7 +76,7 @@ aiRoutes.post('/', requireAuth, async (c) => {
     const owned = interpretOwnedRunLookup(loaded.rows, user.id)
     if (!owned.ok) return c.json({ error: owned.error }, owned.status)
     const run = normalizeRunState(owned.row.state)
-    const scenario = getScenario(run.scenarioId)
+    const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
     const contextData = visibleContext(run)
 
     if (input.mode === 'advisor') {
