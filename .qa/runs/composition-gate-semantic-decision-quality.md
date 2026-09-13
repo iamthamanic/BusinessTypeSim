@@ -1,6 +1,6 @@
 # Composition Gate — semantic-decision-quality
 
-- HEAD_SHA: 2eb0a8d9263afa5d83dac8267edeefb17d076e97
+- HEAD_SHA: 0affdd44cc56dcb2da9f53bc4ab50a8169a5b16d
 - Date: 2026-09-13
 - Verdict: CLEAR
 
