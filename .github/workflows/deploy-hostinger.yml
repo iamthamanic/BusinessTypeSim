@@ -1,5 +1,5 @@
 # Deploy Business Type to Hostinger KVM2 via SSH + Docker Compose.
-# Secrets: see docs/DEPLOY_VPS.md § GitHub Secrets
+# Secrets checklist: docs/GITHUB_SECRETS.md — ops: docs/KVM2_OPS.md
 name: Deploy Hostinger
 
 on:
@@ -9,7 +9,8 @@ on:
 
 concurrency:
   group: deploy-hostinger
-  cancel-in-progress: true
+  # Do not cancel an in-flight deploy (half-applied compose/migrations)
+  cancel-in-progress: false
 
 jobs:
   checks:
@@ -45,7 +46,9 @@ jobs:
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           PORT="${VPS_SSH_PORT:-22}"
-          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          # Fail closed if host key cannot be learned (avoid silent empty known_hosts)
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          test -s ~/.ssh/known_hosts || { echo "ssh-keyscan produced empty known_hosts"; exit 1; }
 
       - name: Sync repo and restart stack
         env:
@@ -63,6 +66,8 @@ jobs:
           WEB_PORT: ${{ secrets.WEB_PORT }}
           PUBLIC_HOST: ${{ secrets.PUBLIC_HOST }}
           CORS_ORIGIN: ${{ secrets.CORS_ORIGIN }}
+          PUBLIC_APP_URL: ${{ secrets.PUBLIC_APP_URL }}
+          COOKIE_SECURE: ${{ secrets.COOKIE_SECURE }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
           LLM_FALLBACK_MODEL: ${{ secrets.LLM_FALLBACK_MODEL }}
@@ -73,9 +78,12 @@ jobs:
         run: |
           set -euo pipefail
           PORT="${VPS_SSH_PORT:-22}"
-          USER_NAME="${VPS_USER:-root}"
-          DEPLOY_PATH="${VPS_DEPLOY_PATH:-/opt/businesstype-sim}"
+          USER_NAME="${VPS_USER:-}"
+          DEPLOY_PATH="${VPS_DEPLOY_PATH:-}"
           REPO_URL="https://github.com/${GITHUB_REPOSITORY}.git"
+
+          test -n "$USER_NAME" || { echo "Missing secret VPS_USER"; exit 1; }
+          test -n "$DEPLOY_PATH" || { echo "Missing secret VPS_DEPLOY_PATH"; exit 1; }
 
           # Validate required app secrets before touching the server
           test -n "${POSTGRES_PASSWORD:-}" || { echo "Missing secret POSTGRES_PASSWORD"; exit 1; }
@@ -88,6 +96,8 @@ jobs:
           export WEB_PORT="${WEB_PORT:-8088}"
           export PUBLIC_HOST="${PUBLIC_HOST:-businesstypesim.raccoova.com}"
           export CORS_ORIGIN="${CORS_ORIGIN:-https://businesstypesim.raccoova.com}"
+          export PUBLIC_APP_URL="${PUBLIC_APP_URL:-$CORS_ORIGIN}"
+          export COOKIE_SECURE="${COOKIE_SECURE:-true}"
           export LLM_BASE_URL="${LLM_BASE_URL:-https://ollama.com/v1}"
           export LLM_MODEL="${LLM_MODEL:-gpt-oss:120b}"
           export LLM_FALLBACK_MODEL="${LLM_FALLBACK_MODEL:-llama3.1:8b}"
@@ -106,6 +116,9 @@ jobs:
             echo "POSTGRES_DB=${POSTGRES_DB}"
             echo "JWT_SECRET=${JWT_SECRET}"
             echo "CORS_ORIGIN=${CORS_ORIGIN}"
+            echo "PUBLIC_APP_URL=${PUBLIC_APP_URL}"
+            echo "COOKIE_SECURE=${COOKIE_SECURE}"
+            echo "AUTH_DEV_CAPTURE=0"
             echo "OLLAMA_API_KEY=${OLLAMA_API_KEY}"
             echo "LLM_BASE_URL=${LLM_BASE_URL}"
             echo "LLM_MODEL=${LLM_MODEL}"
@@ -115,8 +128,8 @@ jobs:
             echo "AI_HOURLY_LIMIT=${AI_HOURLY_LIMIT}"
           } > "$ENV_FILE"
 
-          SCP=(scp -i ~/.ssh/deploy_key -P "$PORT" -o StrictHostKeyChecking=accept-new)
-          SSH=(ssh -i ~/.ssh/deploy_key -p "$PORT" -o StrictHostKeyChecking=accept-new)
+          SCP=(scp -i ~/.ssh/deploy_key -P "$PORT" -o StrictHostKeyChecking=yes)
+          SSH=(ssh -i ~/.ssh/deploy_key -p "$PORT" -o StrictHostKeyChecking=yes)
 
           "${SCP[@]}" "$ENV_FILE" "${USER_NAME}@${VPS_HOST}:/tmp/businesstype.deploy.env"
           rm -f "$ENV_FILE"
@@ -129,8 +142,9 @@ jobs:
           set -euo pipefail
           command -v docker >/dev/null || { echo "docker missing on VPS"; exit 1; }
           docker compose version >/dev/null || { echo "docker compose missing on VPS"; exit 1; }
+          command -v curl >/dev/null || { echo "curl missing on VPS (needed for smoke-verify)"; exit 1; }
 
-          mkdir -p "$DEPLOY_PATH"
+          mkdir -p "$DEPLOY_PATH" /var/backups/businesstype
           if [[ ! -d "$DEPLOY_PATH/.git" ]]; then
             git clone "$REPO_URL" "$DEPLOY_PATH"
           fi
@@ -139,10 +153,25 @@ jobs:
           git fetch --depth 1 origin "$GIT_SHA"
           git checkout --force "$GIT_SHA"
 
+          # Preserve VPS-only backup keys if present, then merge generated deploy env
+          OPS_SNAP="$(mktemp)"
+          if [[ -f deploy/.env ]]; then
+            grep -E '^(BACKUP_|OFFSITE_)' deploy/.env >"$OPS_SNAP" || true
+          fi
           install -m 600 /tmp/businesstype.deploy.env deploy/.env
-          rm -f /tmp/businesstype.deploy.env
+          if [[ -s "$OPS_SNAP" ]]; then
+            cat "$OPS_SNAP" >> deploy/.env
+          fi
+          rm -f /tmp/businesstype.deploy.env "$OPS_SNAP"
+
+          chmod +x deploy/scripts/*.sh deploy/bootstrap-vps.sh 2>/dev/null || true
 
           cd deploy
           docker compose --env-file .env up -d --build
+          # Wait for health when supported
+          docker compose --env-file .env up -d --wait 2>/dev/null || sleep 20
           docker compose --env-file .env ps
+
+          ./scripts/apply-migrations.sh
+          ./scripts/smoke-verify.sh
           REMOTE

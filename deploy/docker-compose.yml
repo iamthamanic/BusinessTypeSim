@@ -1,6 +1,15 @@
 # Business Type Sim — Hostinger KVM2 stack (alongside n8n).
 # Ports default away from n8n (5678). Do not expose Postgres publicly.
+#
+# Resource limits leave headroom for n8n on the same KVM2
+# (see docs/KVM2_OPS.md — tune after live `docker stats`).
 name: businesstype-sim
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
 
 services:
   db:
@@ -19,6 +28,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
+    logging: *default-logging
+    # ~100–200MB steady; cap below so AI spikes cannot starve n8n via DB bloat alone
+    pids_limit: 200
+    mem_limit: 384m
+    cpus: 0.50
     # Host port optional for admin only — leave commented in production:
     # ports:
     #   - '5433:5432'
@@ -48,6 +63,23 @@ services:
         condition: service_healthy
     networks:
       - businesstype
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    logging: *default-logging
+    # ~80–150MB steady; allow short LLM proxy spikes without taking the whole KVM2
+    pids_limit: 256
+    mem_limit: 512m
+    cpus: 0.75
 
   web:
     build:
@@ -59,9 +91,20 @@ services:
       - '${WEB_PORT:-8088}:80'
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - businesstype
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1/healthz']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    logging: *default-logging
+    pids_limit: 64
+    mem_limit: 64m
+    cpus: 0.25
     labels:
       - traefik.enable=true
       - traefik.http.routers.businesstype.rule=Host(`${PUBLIC_HOST:-businesstypesim.raccoova.com}`)
