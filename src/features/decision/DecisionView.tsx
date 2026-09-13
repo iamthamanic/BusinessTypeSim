@@ -78,7 +78,7 @@ export function DecisionView({
   onProposalChange: (proposal: ActionProposal) => void
   onOpenTeam: () => void
 }) {
-  const scenario = getPlayerScenario(run.scenarioId)
+  const scenario = getPlayerScenario(run.scenarioId, run.scenarioVersion)
   const daysLeft = Math.max(0, run.deadlineDay - run.day)
 
   if (phase === 'simulating') return <SimulationScreen busy={busy} />

@@ -1,4 +1,5 @@
-import type { ScenarioDefinition } from './types.ts'
+import type { ScenarioDefinition, ScenarioId, WorldModules } from './types.ts'
+import { nexoraWorldV2, nordkernWorldV2 } from './world-fixtures.ts'
 
 const commonMetricDefinitions: ScenarioDefinition['metricDefinitions'] = [
   { key: 'revenueAnnualCents', label: 'Umsatz / ARR', format: 'currency' },
@@ -9,7 +10,8 @@ const commonMetricDefinitions: ScenarioDefinition['metricDefinitions'] = [
   { key: 'resilienceBps', label: 'Resilienz', format: 'percent' },
 ]
 
-export const scenarios: ScenarioDefinition[] = [
+/** Published V1 snapshots (immutable). World State V2 editions are appended below. */
+const scenarioCatalogV1: ScenarioDefinition[] = [
   {
     id: 'nexora-saas',
     version: 1,
@@ -826,10 +828,67 @@ export const scenarios: ScenarioDefinition[] = [
   },
 ]
 
-export function getScenario(id: ScenarioDefinition['id']): ScenarioDefinition {
-  const scenario = scenarios.find((candidate) => candidate.id === id)
+function publishWorldEdition(base: ScenarioDefinition, initialWorld: WorldModules): ScenarioDefinition {
+  return {
+    ...base,
+    version: 2,
+    initialWorld,
+  }
+}
+
+function requireV1(id: ScenarioId): ScenarioDefinition {
+  const scenario = scenarioCatalogV1.find((candidate) => candidate.id === id)
   if (!scenario) {
-    throw new Error(`Unknown scenario: ${id}`)
+    throw new Error(`Missing V1 scenario seed: ${id}`)
   }
   return scenario
+}
+
+/**
+ * All published scenario versions. Multiple rows per id are intentional:
+ * runs bind to `scenarioVersion` and must not silently pick newer content.
+ */
+export const scenarios: ScenarioDefinition[] = [
+  ...scenarioCatalogV1,
+  publishWorldEdition(requireV1('nexora-saas'), nexoraWorldV2()),
+  publishWorldEdition(requireV1('nordkern-foods'), nordkernWorldV2()),
+]
+
+/** Latest published version for a scenario id (UI catalog / new runs). */
+export function getScenario(id: ScenarioId): ScenarioDefinition {
+  const matches = scenarios.filter((candidate) => candidate.id === id)
+  if (matches.length === 0) {
+    throw new Error(`Unknown scenario: ${id}`)
+  }
+  return matches.reduce((latest, candidate) =>
+    candidate.version > latest.version ? candidate : latest,
+  )
+}
+
+/** Exact published snapshot for a run's bound scenario version. */
+export function getScenarioAtVersion(id: ScenarioId, version: number): ScenarioDefinition {
+  const scenario = scenarios.find((candidate) => candidate.id === id && candidate.version === version)
+  if (!scenario) {
+    throw new Error(`Unknown scenario version: ${id}@${version}`)
+  }
+  return scenario
+}
+
+export function listPublishedScenarioVersions(id: ScenarioId): number[] {
+  return scenarios
+    .filter((candidate) => candidate.id === id)
+    .map((candidate) => candidate.version)
+    .sort((a, b) => a - b)
+}
+
+/** Latest published edition per scenario id — for UI catalogs / new runs only. */
+export function listPlayableScenarios(): ScenarioDefinition[] {
+  const latestById = new Map<ScenarioId, ScenarioDefinition>()
+  for (const scenario of scenarios) {
+    const current = latestById.get(scenario.id)
+    if (!current || scenario.version > current.version) {
+      latestById.set(scenario.id, scenario)
+    }
+  }
+  return [...latestById.values()]
 }

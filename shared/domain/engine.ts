@@ -3,7 +3,7 @@ import {
   ensureManagementAction,
   inferParamsFromText,
 } from './action-params.ts'
-import { getScenario } from './scenarios.ts'
+import { getScenario, getScenarioAtVersion } from './scenarios.ts'
 import type {
   ActionKind,
   ActionProposal,
@@ -15,6 +15,11 @@ import type {
   ScenarioDefinition,
   ScheduledEvent,
 } from './types.ts'
+import { WORLD_STATE_SCHEMA_VERSION, cloneWorldModules, emptyKnowledgeSet, emptyWorldModules } from './world-state.ts'
+
+function scenarioForRun(run: Pick<RunState, 'scenarioId' | 'scenarioVersion'>): ScenarioDefinition {
+  return getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
+}
 
 const metricKeys: Array<keyof CompanyMetrics> = [
   'revenueAnnualCents',
@@ -106,8 +111,10 @@ export function createRun(scenarioId: ScenarioDefinition['id'], seed: string): R
     },
   ]
 
+  const world = cloneWorldModules(scenario.initialWorld ?? emptyWorldModules())
+
   return {
-    schemaVersion: 1,
+    schemaVersion: WORLD_STATE_SCHEMA_VERSION,
     runId: `run_${stableHash(`${scenarioId}:${seed}`).toString(36)}`,
     scenarioId,
     scenarioVersion: scenario.version,
@@ -123,6 +130,9 @@ export function createRun(scenarioId: ScenarioDefinition['id'], seed: string): R
     ledger,
     processedIdempotencyKeys: [],
     status: 'active',
+    world,
+    playerKnowledge: emptyKnowledgeSet(),
+    advisorKnowledge: emptyKnowledgeSet(),
   }
 }
 
@@ -131,7 +141,7 @@ export function requestAnalysis(run: RunState, analysisId: string): RunState {
   if (run.completedAnalyses.some((item) => item.analysisId === analysisId)) return run
   if (run.pendingAnalyses.some((item) => item.analysisId === analysisId)) return run
 
-  const scenario = getScenario(run.scenarioId)
+  const scenario = scenarioForRun(run)
   const analysis = scenario.analyses.find((candidate) => candidate.id === analysisId)
   if (!analysis) throw new UnknownAnalysisError(analysisId)
 
@@ -162,7 +172,7 @@ export function requestAnalysis(run: RunState, analysisId: string): RunState {
 }
 
 function resolveDueAnalyses(run: RunState, targetDay: number): Pick<RunState, 'pendingAnalyses' | 'completedAnalyses' | 'ledger'> {
-  const scenario = getScenario(run.scenarioId)
+  const scenario = scenarioForRun(run)
   const stillPending = []
   const newlyCompleted = [...run.completedAnalyses]
   const ledger = [...run.ledger]
@@ -213,7 +223,7 @@ export function interpretDecisionLocally(
   playerText: string,
   rationale: string,
 ): ActionProposal {
-  const scenario = getScenario(run.scenarioId)
+  const scenario = scenarioForRun(run)
   const combined = `${playerText}\n${rationale}`.trim()
   const inferred = inferActionKind(combined, scenario)
   const paramAmbiguities: string[] = []
@@ -269,7 +279,7 @@ export function scoreDecision(
   playerText: string,
   rationale: string,
 ): DecisionQuality {
-  const scenario = getScenario(run.scenarioId)
+  const scenario = scenarioForRun(run)
   const combined = `${playerText}\n${rationale}`.toLowerCase()
   const framingHits = containsAny(combined, scenario.scoreRubric.framingKeywords).length
   const relevantAnalyses = scenario.scoreRubric.relevantAnalysisIds.filter((id) =>
@@ -311,7 +321,7 @@ export function commitDecision(
     return run
   }
 
-  const scenario = getScenario(run.scenarioId)
+  const scenario = scenarioForRun(run)
   const before = { ...run.metrics }
   let metrics = { ...run.metrics }
   const decisionId = `decision_${run.revision}_${stableHash(playerText).toString(36)}`

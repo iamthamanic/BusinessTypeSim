@@ -12,6 +12,8 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 let run = createRun('nordkern-foods', 'self-check')
+assert(run.schemaVersion === 2, 'world state schema v2')
+assert(run.world.customers.length > 0, 'nordkern world customers seeded')
 assert(run.metrics.revenueAnnualCents === 14_800_000_000, 'starting revenue')
 run = requestAnalysis(run, 'food-profitability')
 assert(run.pendingAnalyses.length === 1, 'analysis pending')

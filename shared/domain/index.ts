@@ -11,19 +11,40 @@ export type {
   AnalysisDefinition,
   AnalysisResult,
   CompanyMetrics,
+  CompetitorEntity,
+  ContractEntity,
+  CustomerEntity,
   DecisionQuality,
   DecisionRecord,
+  DepartmentEntity,
+  EntityLifecycle,
+  KeyPersonEntity,
+  KnowledgeSet,
+  KnowledgeVisibility,
   LedgerEvent,
   LedgerEventType,
+  LocationEntity,
   ManagementAction,
   MetricDefinition,
   MetricTone,
   PendingAnalysis,
   PlayerAnalysisDefinition,
+  PlayerCompetitorView,
+  PlayerContractView,
+  PlayerCustomerView,
+  PlayerDepartmentView,
+  PlayerKeyPersonView,
+  PlayerLocationView,
+  PlayerProductView,
+  PlayerProjectView,
+  PlayerWorldView,
+  ProductEntity,
+  ProjectEntity,
   RunState,
   ScenarioDefinition,
   ScenarioId,
   ScheduledEvent,
+  WorldModules,
 } from './types.ts'
 
 export {
@@ -48,7 +69,13 @@ export {
   type ParameterizedActionKind,
 } from './action-params.ts'
 
-export { scenarios, getScenario } from './scenarios.ts'
+export {
+  scenarios,
+  getScenario,
+  getScenarioAtVersion,
+  listPublishedScenarioVersions,
+  listPlayableScenarios,
+} from './scenarios.ts'
 
 export {
   advanceTime,
@@ -63,12 +90,27 @@ export {
 } from './engine.ts'
 
 export {
+  getPlayerRunWorld,
   getPlayerScenario,
   getUnlockedAnalysis,
   listPlayerAnalyses,
   normalizeRunState,
   toPlayerAnalysis,
 } from './player-view.ts'
+
+export {
+  WORLD_STATE_SCHEMA_VERSION,
+  cloneWorldModules,
+  emptyKnowledgeSet,
+  emptyWorldModules,
+  ensureWorldStateV2,
+  getAdvisorWorldView,
+  getPlayerWorldView,
+  listWorldEntityIds,
+  playerWorldContextSummary,
+} from './world-state.ts'
+
+export { nexoraWorldV2, nordkernWorldV2 } from './world-fixtures.ts'
 
 export {
   collectAdvisorToolContext,

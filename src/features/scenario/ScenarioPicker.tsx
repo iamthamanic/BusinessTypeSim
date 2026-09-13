@@ -1,6 +1,6 @@
 /** Scenario selection — mockup screen 2: filters + company cards with brand icons. */
 import { useMemo, useState } from 'react'
-import { scenarios, type ScenarioId } from '../../domain'
+import { listPlayableScenarios, type ScenarioId } from '../../domain'
 import { login, register } from '../../infrastructure/cloud'
 import { BrandMark } from '../../shared/BrandMark'
 import { CompanyMark, companyCoverSrc } from '../../shared/CompanyMark'
@@ -49,7 +49,7 @@ export function ScenarioPicker({
   const [selected, setSelected] = useState<ScenarioId | null>(null)
 
   const visible = useMemo(
-    () => scenarios.filter((scenario) => filter === 'all' || filterFor(scenario.id) === filter),
+    () => listPlayableScenarios().filter((scenario) => filter === 'all' || filterFor(scenario.id) === filter),
     [filter],
   )
 
