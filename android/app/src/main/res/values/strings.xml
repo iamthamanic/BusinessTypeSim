@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Business Type</string>
+    <string name="title_activity_main">Business Type</string>
+    <string name="package_name">app.businesstype.sim</string>
+    <string name="custom_url_scheme">app.businesstype.sim</string>
+</resources>

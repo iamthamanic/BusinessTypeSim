@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+deploy/.env
+server/node_modules/
+*.tsbuildinfo
+android/.gradle/
+android/app/build/
+android/local.properties
+ios/App/Pods/
+ios/App/build/
+.DS_Store
+.qa/evidence/
+.qa/test-results/

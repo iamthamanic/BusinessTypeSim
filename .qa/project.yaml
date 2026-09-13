@@ -1,0 +1,35 @@
+appRoot: .
+devUrl: http://localhost:5173
+checksCommand: npm run checks
+styleguide: docs/UI_STYLEGUIDE.md
+locale: de
+security:
+  checklist: secure-by-default
+typedStrict:
+  languages:
+    - typescript
+testGate:
+  profile: vite-react
+  always:
+    - typecheck
+    - lint
+    - build
+    - test
+  never:
+    - aiReview
+issueContract:
+  template: global
+  labels: []
+  maxAcceptanceBullets: 5
+  securitySection: true
+  locale: de
+  runtimeAxes:
+    - web
+    - android
+    - ios
+navigation:
+  - Home
+  - Unternehmen
+  - Entscheidung
+  - Team
+  - Verlauf

@@ -1,0 +1,145 @@
+# Deploy Business Type to Hostinger KVM2 via SSH + Docker Compose.
+# Secrets: see docs/DEPLOY_VPS.md § GitHub Secrets
+name: Deploy Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hostinger
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run checks
+      - name: Server typecheck
+        working-directory: server
+        run: npm ci && npm run typecheck
+
+  deploy:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "${VPS_SSH_KEY:-}" || { echo "Missing secret VPS_SSH_KEY"; exit 1; }
+          test -n "${VPS_HOST:-}" || { echo "Missing secret VPS_HOST"; exit 1; }
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          PORT="${VPS_SSH_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Sync repo and restart stack
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          WEB_PORT: ${{ secrets.WEB_PORT }}
+          CORS_ORIGIN: ${{ secrets.CORS_ORIGIN }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          LLM_FALLBACK_MODEL: ${{ secrets.LLM_FALLBACK_MODEL }}
+          LLM_TIMEOUT_MS: ${{ secrets.LLM_TIMEOUT_MS }}
+          AI_HOURLY_LIMIT: ${{ secrets.AI_HOURLY_LIMIT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          PORT="${VPS_SSH_PORT:-22}"
+          USER_NAME="${VPS_USER:-root}"
+          DEPLOY_PATH="${VPS_DEPLOY_PATH:-/opt/businesstype-sim}"
+          REPO_URL="https://github.com/${GITHUB_REPOSITORY}.git"
+
+          # Validate required app secrets before touching the server
+          test -n "${POSTGRES_PASSWORD:-}" || { echo "Missing secret POSTGRES_PASSWORD"; exit 1; }
+          test -n "${JWT_SECRET:-}" || { echo "Missing secret JWT_SECRET"; exit 1; }
+          test -n "${OLLAMA_API_KEY:-}" || { echo "Missing secret OLLAMA_API_KEY"; exit 1; }
+
+          export POSTGRES_USER="${POSTGRES_USER:-businesstype}"
+          export POSTGRES_DB="${POSTGRES_DB:-businesstype}"
+          export VITE_API_URL="${VITE_API_URL:-/api}"
+          export WEB_PORT="${WEB_PORT:-8088}"
+          export CORS_ORIGIN="${CORS_ORIGIN:-*}"
+          export LLM_BASE_URL="${LLM_BASE_URL:-https://ollama.com/v1}"
+          export LLM_MODEL="${LLM_MODEL:-gpt-oss:120b}"
+          export LLM_FALLBACK_MODEL="${LLM_FALLBACK_MODEL:-llama3.1:8b}"
+          export LLM_TIMEOUT_MS="${LLM_TIMEOUT_MS:-25000}"
+          export AI_HOURLY_LIMIT="${AI_HOURLY_LIMIT:-30}"
+          export TAVILY_API_KEY="${TAVILY_API_KEY:-}"
+
+          ENV_FILE="$(mktemp)"
+          umask 077
+          {
+            echo "WEB_PORT=${WEB_PORT}"
+            echo "VITE_API_URL=${VITE_API_URL}"
+            echo "POSTGRES_USER=${POSTGRES_USER}"
+            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+            echo "POSTGRES_DB=${POSTGRES_DB}"
+            echo "JWT_SECRET=${JWT_SECRET}"
+            echo "CORS_ORIGIN=${CORS_ORIGIN}"
+            echo "OLLAMA_API_KEY=${OLLAMA_API_KEY}"
+            echo "LLM_BASE_URL=${LLM_BASE_URL}"
+            echo "LLM_MODEL=${LLM_MODEL}"
+            echo "LLM_FALLBACK_MODEL=${LLM_FALLBACK_MODEL}"
+            echo "LLM_TIMEOUT_MS=${LLM_TIMEOUT_MS}"
+            echo "TAVILY_API_KEY=${TAVILY_API_KEY}"
+            echo "AI_HOURLY_LIMIT=${AI_HOURLY_LIMIT}"
+          } > "$ENV_FILE"
+
+          SCP=(scp -i ~/.ssh/deploy_key -P "$PORT" -o StrictHostKeyChecking=accept-new)
+          SSH=(ssh -i ~/.ssh/deploy_key -p "$PORT" -o StrictHostKeyChecking=accept-new)
+
+          "${SCP[@]}" "$ENV_FILE" "${USER_NAME}@${VPS_HOST}:/tmp/businesstype.deploy.env"
+          rm -f "$ENV_FILE"
+
+          "${SSH[@]}" "${USER_NAME}@${VPS_HOST}" \
+            DEPLOY_PATH="$DEPLOY_PATH" \
+            REPO_URL="$REPO_URL" \
+            GIT_SHA="$GITHUB_SHA" \
+            bash -s <<'REMOTE'
+          set -euo pipefail
+          command -v docker >/dev/null || { echo "docker missing on VPS"; exit 1; }
+          docker compose version >/dev/null || { echo "docker compose missing on VPS"; exit 1; }
+
+          mkdir -p "$DEPLOY_PATH"
+          if [[ ! -d "$DEPLOY_PATH/.git" ]]; then
+            git clone "$REPO_URL" "$DEPLOY_PATH"
+          fi
+          cd "$DEPLOY_PATH"
+          git remote set-url origin "$REPO_URL"
+          git fetch --depth 1 origin "$GIT_SHA"
+          git checkout --force "$GIT_SHA"
+
+          install -m 600 /tmp/businesstype.deploy.env deploy/.env
+          rm -f /tmp/businesstype.deploy.env
+
+          cd deploy
+          docker compose --env-file .env up -d --build
+          docker compose --env-file .env ps
+          REMOTE

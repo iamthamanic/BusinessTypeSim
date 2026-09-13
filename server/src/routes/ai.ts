@@ -1,0 +1,107 @@
+/** AI orchestrator — interpret decisions + advisor answers via Ollama Cloud. */
+import { Hono } from 'hono'
+import { z } from 'zod'
+import { requireAuth, type AppVariables } from '../auth.ts'
+import { actionProposalSchema } from '../contracts.ts'
+import { pool } from '../db.ts'
+import { callChatModel } from '../llm.ts'
+import { claimAiRequest } from '../rate-limit.ts'
+import { getScenario, type ActionProposal, type RunState } from '../../../shared/domain/index.ts'
+
+const inputSchema = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal('interpret_decision'),
+    runId: z.string().min(1),
+    playerText: z.string().min(3).max(4000),
+    rationale: z.string().max(6000),
+  }),
+  z.object({
+    mode: z.literal('advisor'),
+    runId: z.string().min(1),
+    advisorId: z.string().min(1).max(120),
+    question: z.string().min(2).max(2500),
+  }),
+])
+
+function visibleContext(run: RunState) {
+  const scenario = getScenario(run.scenarioId)
+  const analyses = scenario.analyses
+    .filter((analysis) => run.completedAnalyses.some((item) => item.analysisId === analysis.id))
+    .map((analysis) => ({
+      id: analysis.id,
+      title: analysis.resultTitle,
+      result: analysis.resultBody,
+      confidence: analysis.confidence,
+    }))
+  return {
+    company: scenario.companyName,
+    situation: scenario.decisionContext,
+    day: run.day,
+    deadlineDay: run.deadlineDay,
+    metrics: run.metrics,
+    knownFacts: scenario.knownFacts,
+    analyses,
+  }
+}
+
+function extractJson(text: string): unknown {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]
+  return JSON.parse((fenced ?? text).trim())
+}
+
+export const aiRoutes = new Hono<{ Variables: AppVariables }>()
+
+aiRoutes.post('/', requireAuth, async (c) => {
+  const parsed = inputSchema.safeParse(await c.req.json())
+  if (!parsed.success) return c.json({ error: 'INVALID_INPUT' }, 400)
+  const user = c.get('user')
+  const input = parsed.data
+
+  try {
+    const allowed = await claimAiRequest(user.id)
+    if (!allowed) return c.json({ error: 'RATE_LIMITED' }, 429)
+
+    const loaded = await pool.query<{ state: RunState }>(
+      `select state from game_runs where id = $1 and owner_id = $2`,
+      [input.runId, user.id],
+    )
+    const run = loaded.rows[0]?.state
+    if (!run) return c.json({ error: 'RUN_NOT_FOUND' }, 404)
+    const scenario = getScenario(run.scenarioId)
+    const contextData = visibleContext(run)
+
+    if (input.mode === 'advisor') {
+      const advisor = scenario.advisors.find((candidate) => candidate.id === input.advisorId)
+      if (!advisor) return c.json({ error: 'ADVISOR_NOT_FOUND' }, 404)
+      const answer = await callChatModel([
+        {
+          role: 'system',
+          content: `Du spielst ${advisor.name}, ${advisor.role}. Haltung: ${advisor.stance}. Nutze ausschließlich den sichtbaren Unternehmenskontext. Benenne Unsicherheit offen. Erfinde keine Zahlen.`,
+        },
+        { role: 'user', content: `Sichtbarer Kontext:\n${JSON.stringify(contextData)}\n\nFrage: ${input.question}` },
+      ])
+      return c.json({ answer })
+    }
+
+    const content = await callChatModel([
+      {
+        role: 'system',
+        content:
+          'Interpretiere eine freie CEO-Entscheidung als JSON. Du darfst keinen Spielzustand verändern. Erlaubte kind-Werte: allocate_capital, change_hiring_policy, change_headcount_plan, set_pricing_policy, renegotiate_customer, accept_contract, reject_contract, prioritize_product, start_project, cancel_project, request_analysis, restructure_organization. Gib ausschließlich ein JSON-Objekt mit actions, assumptions, ambiguities, extractedObjectives, extractedRisks, extractedAlternatives, evidenceRefs zurück. Maximal 6 Actions.',
+      },
+      {
+        role: 'user',
+        content: `Sichtbarer Kontext:\n${JSON.stringify(contextData)}\n\nEntscheidung: ${input.playerText}\nBegründung: ${input.rationale}`,
+      },
+    ])
+    const validated = actionProposalSchema.safeParse(extractJson(content))
+    if (!validated.success) return c.json({ error: 'INVALID_MODEL_OUTPUT' }, 422)
+    const proposal: ActionProposal = validated.data
+    return c.json({ proposal })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown'
+    if (message === 'LLM_NOT_CONFIGURED') return c.json({ error: 'LLM_NOT_CONFIGURED' }, 503)
+    console.error('ai error', message)
+    return c.json({ error: 'INTERNAL_ERROR' }, 500)
+  }
+})

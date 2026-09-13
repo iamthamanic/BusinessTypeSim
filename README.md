@@ -1,3 +1,138 @@
 # Business Type
 
-Mobile CEO decision simulation.
+Business Type ist eine mobile CEO-Entscheidungssimulation. Spieler führen unterschiedliche Unternehmen durch realistische Situationen, beschaffen Informationen, sprechen mit virtuellen Führungskräften, formulieren freie Entscheidungen und erleben deterministische sowie probabilistische Konsequenzen über die Zeit.
+
+Der Kern ist **Decision Quality statt Quizlogik**: Die Qualität einer Entscheidung wird getrennt vom späteren Ergebnis bewertet.
+
+## MVP-Status
+
+Der erste vollständige MVP-Core-Loop ist implementiert:
+
+- sieben spielbare Unternehmensfälle: SaaS, Produktion, Services, Klinik, Marketplace, Energie, Retail;
+- Mobile-first Decision Room mit Company View, Advisors und Timeline;
+- Analysen verbrauchen Simulationszeit und schalten Informationen frei;
+- freie Texteingabe wird in validierte ManagementActions strukturiert;
+- Decision Quality mit sechs Dimensionen, getrennt vom Outcome;
+- seeded probabilistische Folgen und verzögerte Events;
+- lokaler Demo-Run mit Persistenz im Gerät;
+- optionaler Cloud-Run über self-hosted Postgres + Hono API (Hostinger Docker);
+- Ollama-Cloud-Adapter (`OLLAMA_API_KEY` + OpenAI-kompatibles `https://ollama.com/v1`) mit lokalem Fallback;
+- read-only Real-World-Debrief über Tavily Search + LLM-Zusammenfassung;
+- Capacitor-Konfiguration für Android und iOS.
+
+Produkt- und Engineering-Verträge:
+
+- PRD: [`docs/PRD.md`](docs/PRD.md)
+- Game Design: [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md)
+- Simulation: [`docs/SIMULATION_MODEL.md`](docs/SIMULATION_MODEL.md)
+- AI Contract: [`docs/AI_CONTRACT.md`](docs/AI_CONTRACT.md)
+- Architektur: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- UI Styleguide: [`docs/UI_STYLEGUIDE.md`](docs/UI_STYLEGUIDE.md)
+- Agent-Regeln: [`AGENTS.md`](AGENTS.md)
+
+## Stack
+
+- React 19 + TypeScript + Vite
+- Capacitor 8 für Android und iOS
+- Self-hosted Postgres + Hono API (Docker auf Hostinger KVM2)
+- Zod für Runtime-Contracts
+- Ollama Cloud als Standard-LLM hinter OpenAI-kompatiblem Serveradapter
+- Tavily als austauschbarer Search-Provider für den Real-World-Debrief
+- Pure TypeScript Simulation Core
+
+## Architektur
+
+```text
+React / Capacitor UI
+        |
+        +------ local demo ------> pure Simulation Core
+        |
+        +------ cloud -----------> Hono API (Docker)
+                                      |       |       |
+                                      |       |       +--> Tavily Search
+                                      |       +----------> Ollama Cloud
+                                      +------------------> Postgres
+                                              |
+                                      pure Simulation Core
+```
+
+Das LLM darf Spielzustand niemals direkt verändern. Cloud-Mutationen laufen über authentifizierte API-Routen, validierte Action-Schemas, optimistische Run-Revisionskontrolle und den autoritativen Simulation Core.
+
+## Lokale Entwicklung
+
+Voraussetzungen: Node.js 22+, npm und für Native Builds Android Studio bzw. Xcode auf macOS.
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Checks:
+
+```bash
+npm run checks
+```
+
+Deterministischer Domain-Self-Check ohne installierte App-Dependencies:
+
+```bash
+npm run test:domain:self
+```
+
+Native Projekte initialisieren, sobald Dependencies installiert sind:
+
+```bash
+npm run native:setup
+```
+
+Danach stehen `npm run cap:android` und `npm run cap:ios` zur Verfügung.
+
+## Cloud (Hostinger)
+
+### Hostinger self-host (primär)
+
+Siehe [`docs/DEPLOY_VPS.md`](docs/DEPLOY_VPS.md):
+
+```bash
+cd deploy
+cp .env.example .env   # POSTGRES_PASSWORD, JWT_SECRET, OLLAMA_API_KEY
+./bootstrap-vps.sh
+```
+
+Client-Build braucht `VITE_API_URL=/api` (Compose setzt das). Auth ist E-Mail + Passwort gegen die eigene API.
+
+Service-/Secret-Keys dürfen nie in `VITE_*` oder den Client gelangen.
+
+## Projektstruktur
+
+```text
+src/
+  app/              App-Shell und Run-Orchestrierung
+  features/         vertikale Nutzerflows
+  domain/           Public Re-Exports des puren Simulation Core
+  ai/               Runtime-Schemas und lokaler AI-Fallback
+  infrastructure/   Cloud-API-Client, lokaler Run, AI und Debrief
+  shared/           UI-Primitives
+shared/domain/      Pure Simulation Engine + Szenarien
+server/             Hono API (Auth, Game, AI, Debrief)
+deploy/             Docker Compose: web + api + postgres
+docs/               Produkt-, Architektur- und Design-Dokumentation
+.qa/                Design-, Acceptance- und Gate-Konfiguration
+```
+
+## Aktuelle Umgebungsgrenze
+
+Native Android/iOS-Ordner entstehen über `npm run native:setup`. Hostinger-Deploy: `deploy/docker-compose.yml` (web + api + postgres).
+
+## Lizenz
+
+Noch nicht festgelegt. Die Sichtbarkeit des GitHub-Repositories ersetzt keine Lizenzentscheidung.
+
+## Recent changes
+
+- **2026-09-13** — GitHub Actions Deploy-Pipeline für Hostinger (`docs/GITHUB_SECRETS.md`)
+- **2026-09-12** — Domain nach `shared/domain/` verschoben; `supabase/`-Ordner entfernt
+- **2026-09-12** — Hostinger thin stack: Postgres + Hono API + nginx; E-Mail/Passwort-Auth
+- **2026-09-12** — Ollama Cloud LLM, sieben Szenarien, Capacitor-Setup
+- **2026-09-12** — Spielbarer MVP-Core-Loop mit Decision Quality und seeded Simulation
