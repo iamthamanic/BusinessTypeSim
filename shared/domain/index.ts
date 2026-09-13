@@ -90,6 +90,14 @@ export {
 } from './engine.ts'
 
 export {
+  applyEconomicDay,
+  softDeadlineConsequence,
+  analysisCompletesAfterDeadline,
+  dailyCashDeltaFromEbitda,
+  hasDeadlineConsequence,
+} from './economic-time.ts'
+
+export {
   ConstraintViolationError,
   actionCashDemandCents,
   availableCashCents,

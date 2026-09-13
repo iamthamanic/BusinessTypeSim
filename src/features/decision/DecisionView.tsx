@@ -3,7 +3,7 @@
  * Mockup screens 4, 6, 7, 8.
  */
 import { useEffect, useState } from 'react'
-import { getPlayerScenario, type ActionProposal, type RunState } from '../../domain'
+import { getPlayerScenario, analysisCompletesAfterDeadline, type ActionProposal, type RunState } from '../../domain'
 import { Button, Card, Tag } from '../../shared/ui'
 import { ProposalReviewCard } from './ProposalReviewCard'
 
@@ -96,6 +96,8 @@ export function DecisionView({
           {scenario.analyses.map((analysis, index) => {
             const complete = run.completedAnalyses.find((item) => item.analysisId === analysis.id)
             const pending = run.pendingAnalyses.find((item) => item.analysisId === analysis.id)
+            const availableAt = pending?.availableAtDay ?? run.day + analysis.durationDays
+            const afterDeadline = !complete && analysisCompletesAfterDeadline(availableAt, run.deadlineDay)
             return (
               <div className={`analysis-menu__row${complete ? ' is-done' : ''}${pending ? ' is-pending' : ''}`} key={analysis.id}>
                 <AnalysisIcon index={index} />
@@ -108,12 +110,15 @@ export function DecisionView({
                       : pending
                         ? `Läuft · Ergebnis an Tag ${pending.availableAtDay}`
                         : `${analysis.durationDays} Simulations-Tage`}
+                    {afterDeadline ? ' · Fertig nach Entscheidungsfrist' : ''}
                   </small>
                 </div>
                 {complete ? (
                   <Tag tone="positive">Fertig</Tag>
                 ) : pending ? (
                   <Tag tone="warning">Pending</Tag>
+                ) : afterDeadline ? (
+                  <Tag tone="warning">Nach Frist</Tag>
                 ) : (
                   <Button variant="secondary" disabled={busy} onClick={() => void onAnalysis(analysis.id)}>Anfordern</Button>
                 )}
@@ -195,8 +200,8 @@ export function DecisionView({
   return (
     <div className="screen-stack">
       <section className="priority-banner">
-        <Tag tone="negative">Hohe Priorität</Tag>
-        <span>{daysLeft} Tage verbleibend</span>
+        <Tag tone={daysLeft === 0 ? 'negative' : 'warning'}>{daysLeft === 0 ? 'Frist erreicht' : 'Hohe Priorität'}</Tag>
+        <span>{daysLeft === 0 ? 'Soft Deadline — Folgen bei Weiterlaufen ohne Entscheidung' : `${daysLeft} Tage verbleibend`}</span>
       </section>
       <div className="screen-heading">
         <span className="eyebrow">Decision Room</span>
