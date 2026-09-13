@@ -9,6 +9,7 @@ export function Button({
   type = 'button',
   block = false,
   className = '',
+  ...rest
 }: {
   children: ReactNode
   onClick?: () => void
@@ -17,13 +18,14 @@ export function Button({
   type?: 'button' | 'submit'
   block?: boolean
   className?: string
-}) {
+} & HTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       className={`button button--${variant}${block ? ' button--block' : ''}${className ? ` ${className}` : ''}`}
       onClick={onClick}
       disabled={disabled}
       type={type}
+      {...rest}
     >
       {children}
     </button>

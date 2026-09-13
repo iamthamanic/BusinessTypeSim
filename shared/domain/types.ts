@@ -405,7 +405,98 @@ export type LedgerEventType =
   | 'review'
   | 'economic'
   | 'deadline_consequence'
+  | 'campaign'
   | 'system'
+
+/** Player-/system visibility for situation templates (hidden triggers never enter player views). */
+export type SituationVisibility = 'player_visible' | 'advisor_visible' | 'hidden' | 'system_only'
+
+/** Lifecycle of a concrete situation instance inside a run. */
+export type SituationStatus = 'pending' | 'active' | 'resolved' | 'expired' | 'suppressed'
+
+/** Metric threshold clause for eligibility (integer cents / bps). */
+export interface MetricThreshold {
+  min?: number
+  max?: number
+}
+
+/**
+ * Authoring-only eligibility trigger — never expose via player read-model.
+ * Evaluated against authoritative WorldState + clock + prior decisions.
+ */
+export interface SituationTrigger {
+  minDay?: number
+  maxDay?: number
+  minMonth?: number
+  maxMonth?: number
+  minDecisions?: number
+  maxDecisions?: number
+  metrics?: Partial<Record<keyof CompanyMetrics, MetricThreshold>>
+  requiresResolvedTemplateIds?: string[]
+  /** Probability gate in basis points; drawn from run seed (optional). */
+  probabilityBps?: number
+}
+
+/** Versioned situation template inside a published campaign version. */
+export interface SituationTemplate {
+  id: string
+  version: number
+  familyId: string
+  title: string
+  context: string
+  priority: number
+  cooldownDays: number
+  /** Soft decision window after activation (days). */
+  deadlineDays: number
+  visibility: SituationVisibility
+  /** Mutually-exclusive group id; at most one active/resolved member per run. */
+  exclusionGroup?: string
+  trigger: SituationTrigger
+}
+
+/** Versioned campaign definition (immutable once published). */
+export interface CampaignDefinition {
+  id: string
+  version: number
+  scenarioId: ScenarioId
+  durationMonths: number
+  situations: SituationTemplate[]
+}
+
+/** Concrete situation occurrence tracked on the run. */
+export interface SituationInstance {
+  instanceId: string
+  templateId: string
+  templateVersion: number
+  status: SituationStatus
+  eligibleAtDay: number
+  activatedAtDay?: number
+  deadlineDay?: number
+  resolvedAtDay?: number
+  expiredAtDay?: number
+  suppressedAtDay?: number
+  exclusionGroup?: string
+  ledgerCauseId?: string
+}
+
+/**
+ * Authoritative campaign runtime state bound to a published CampaignVersion.
+ * Clock months are 0-based; day mirrors RunState.day.
+ */
+export interface CampaignRuntimeState {
+  campaignId: string
+  campaignVersion: number
+  durationMonths: number
+  clockDay: number
+  clockMonth: number
+  situations: SituationInstance[]
+  /** templateId → day when cooldown clears. */
+  cooldowns: Record<string, number>
+  /** exclusionGroup → templateId that claimed the group. */
+  exclusionClaims: Record<string, string>
+  ended: boolean
+  endReason?: 'duration' | 'failure' | undefined
+}
 
 export interface LedgerEvent {
   id: string
@@ -450,6 +541,33 @@ export interface DecisionRecord {
     ledger: LedgerEvent[]
     processedIdempotencyKeys: string[]
     status: 'active' | 'completed' | 'failed'
+    campaign: CampaignRuntimeState
+  }
+  /**
+   * Pre-decision snapshot for alternate-action counterfactuals (same ScenarioVersion).
+   * Must not be used to rewrite Decision Quality.
+   */
+  preDecisionSnapshot?: {
+    schemaVersion: 1 | 2
+    runId: string
+    scenarioId: ScenarioId
+    scenarioVersion: number
+    seed: string
+    revision: number
+    day: number
+    deadlineDay: number
+    metrics: CompanyMetrics
+    world: WorldModules
+    playerKnowledge: KnowledgeSet
+    advisorKnowledge: KnowledgeSet
+    pendingAnalyses: PendingAnalysis[]
+    completedAnalyses: AnalysisResult[]
+    decisions: DecisionRecord[]
+    scheduledEvents: ScheduledEvent[]
+    ledger: LedgerEvent[]
+    processedIdempotencyKeys: string[]
+    status: 'active' | 'completed' | 'failed'
+    campaign: CampaignRuntimeState
   }
   before: CompanyMetrics
   afterImmediate: CompanyMetrics
@@ -477,4 +595,6 @@ export interface RunState {
   world: WorldModules
   playerKnowledge: KnowledgeSet
   advisorKnowledge: KnowledgeSet
+  /** Bound published campaign + situation clock/instances. */
+  campaign: CampaignRuntimeState
 }

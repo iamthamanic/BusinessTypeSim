@@ -136,6 +136,7 @@ Noch nicht festgelegt. Die Sichtbarkeit des GitHub-Repositories ersetzt keine Li
 
 ## Recent changes
 
+- **2026-09-13** — Campaign runtime: situation eligibility/priority/cooldown/exclusion, player-safe Campaign panel (Closes #8)
 - **2026-09-13** — GLM-5.3-Flash default + repair/escalation routing (Closes #11)
 - **2026-09-13** — Long-term outcomes + seeded comparison batch; Sofortwirkung vs 12-Monats-Horizont getrennt von DQ (Closes #7)
 - **2026-09-13** — Semantic Decision Quality: structured evidence, DecisionContextSnapshot, deterministic rubrics (Closes #6)

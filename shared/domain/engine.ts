@@ -4,15 +4,31 @@ import {
   inferParamsFromText,
 } from './action-params.ts'
 import { ConstraintViolationError, evaluateConstraints, hasConstraintBlockers } from './constraints.ts'
+import {
+  applyCampaignDay,
+  bootstrapCampaignState,
+  resolveActiveSituation,
+} from './campaign.ts'
+import { getPublishedCampaignForScenario } from './campaign-fixtures.ts'
 import { scoreDecisionSemantic } from './decision-quality.ts'
 import { applyEconomicDay, softDeadlineConsequence } from './economic-tick.ts'
-import { captureOutcomeBaseSnapshot } from './outcomes.ts'
+import {
+  captureOutcomeBaseSnapshot,
+  compareOutcomes,
+  OUTCOME_HORIZON_DAYS,
+  projectToHorizon,
+  runFromOutcomeSnapshot,
+  type CounterfactualProjection,
+  type OutcomeBaseSnapshot,
+  type OutcomeComparison,
+} from './outcomes.ts'
 import { getScenario, getScenarioAtVersion } from './scenarios.ts'
 import type {
   ActionKind,
   ActionProposal,
   CompanyMetrics,
   DecisionQuality,
+  DecisionRecord,
   LedgerEvent,
   ManagementAction,
   RunState,
@@ -98,19 +114,13 @@ export class UnknownAnalysisError extends Error {
 
 export function createRun(scenarioId: ScenarioDefinition['id'], seed: string): RunState {
   const scenario = getScenario(scenarioId)
-  const ledger: LedgerEvent[] = [
-    {
-      id: `situation_${scenario.id}_1`,
-      type: 'situation',
-      day: 0,
-      title: scenario.decisionTitle,
-      body: scenario.decisionContext,
-      tone: 'warning',
-    },
-  ]
-
   const world = cloneWorldModules(scenario.initialWorld ?? emptyWorldModules())
-
+  const campaignDefinition = getPublishedCampaignForScenario(scenarioId)
+  const boot = bootstrapCampaignState({
+    campaign: campaignDefinition,
+    seed,
+    deadlineDay: scenario.deadlineDays,
+  })
   return {
     schemaVersion: WORLD_STATE_SCHEMA_VERSION,
     runId: `run_${stableHash(`${scenarioId}:${seed}`).toString(36)}`,
@@ -119,18 +129,19 @@ export function createRun(scenarioId: ScenarioDefinition['id'], seed: string): R
     seed,
     revision: 1,
     day: 0,
-    deadlineDay: scenario.deadlineDays,
+    deadlineDay: boot.deadlineDay,
     metrics: { ...scenario.startingMetrics },
     pendingAnalyses: [],
     completedAnalyses: [],
     decisions: [],
     scheduledEvents: [],
-    ledger,
+    ledger: boot.ledger,
     processedIdempotencyKeys: [],
     status: 'active',
     world,
     playerKnowledge: emptyKnowledgeSet(),
     advisorKnowledge: emptyKnowledgeSet(),
+    campaign: boot.campaign,
   }
 }
 
@@ -262,14 +273,16 @@ function compareLedgerEvents(a: LedgerEvent, b: LedgerEvent): number {
         return 2
       case 'deadline_consequence':
         return 3
-      case 'situation':
+      case 'campaign':
         return 4
-      case 'decision':
+      case 'situation':
         return 5
-      case 'immediate_effect':
+      case 'decision':
         return 6
-      case 'review':
+      case 'immediate_effect':
         return 7
+      case 'review':
+        return 8
       default:
         return 9
     }
@@ -363,6 +376,39 @@ function resolveRule(scenario: ScenarioDefinition, action: ManagementAction) {
   return scenario.actionRules.find((rule) => rule.kind === action.kind)
 }
 
+/**
+ * Pick an alternate ManagementAction path from the bound ScenarioVersion
+ * (first rule kind not present in the committed proposal).
+ */
+export function buildAlternateProposal(
+  snapshot: OutcomeBaseSnapshot,
+  primary: ActionProposal,
+): ActionProposal | null {
+  const scenario = scenarioForRun(snapshot)
+  const primaryKinds = new Set(primary.actions.map((action) => action.kind))
+  const alternateRule = scenario.actionRules.find((rule) => !primaryKinds.has(rule.kind))
+  if (!alternateRule) return null
+
+  const template = primary.actions[0]
+  const action: ManagementAction = {
+    id: `counterfactual_alt_1`,
+    kind: alternateRule.kind,
+    label: alternateRule.label,
+    sourceText: template?.sourceText ?? 'counterfactual',
+    schemaVersion: template?.schemaVersion ?? 1,
+    params: {},
+  }
+  return {
+    actions: [action],
+    assumptions: ['Automatischer Gegenpfad aus Scenario-Rules.'],
+    ambiguities: [],
+    extractedObjectives: [],
+    extractedRisks: [],
+    extractedAlternatives: [alternateRule.kind],
+    evidenceRefs: [],
+  }
+}
+
 export function commitDecision(
   run: RunState,
   playerText: string,
@@ -378,6 +424,7 @@ export function commitDecision(
     return run
   }
 
+  const preDecisionSnapshot = captureOutcomeBaseSnapshot(run)
   const scenario = scenarioForRun(run)
   const before = { ...run.metrics }
   let metrics = { ...run.metrics }
@@ -460,26 +507,130 @@ export function commitDecision(
     ? [...run.processedIdempotencyKeys, idempotencyKey]
     : run.processedIdempotencyKeys
 
-  const next = withFailureStatus({
+  const campaignDefinition = getPublishedCampaignForScenario(run.scenarioId)
+  const resolvedCampaign = resolveActiveSituation(
+    { ...run, day },
+    campaignDefinition,
+    decisionId,
+  )
+  let next: RunState = withFailureStatus({
     ...run,
     revision: run.revision + 1,
     day,
     metrics,
     decisions: [...run.decisions, decision],
     scheduledEvents: [...run.scheduledEvents, ...newScheduled],
-    ledger,
+    ledger: [...ledger, ...resolvedCampaign.ledger],
     processedIdempotencyKeys,
+    campaign: resolvedCampaign.campaign,
+  })
+
+  // Same-day campaign tick after resolve so newly eligible situations can activate.
+  const camp = applyCampaignDay(next, campaignDefinition, day)
+  next = withFailureStatus({
+    ...next,
+    campaign: camp.campaign,
+    deadlineDay: camp.deadlineDay,
+    status:
+      camp.status === 'completed'
+        ? 'completed'
+        : camp.status === 'failed'
+          ? 'failed'
+          : next.status,
+    ledger: [...next.ledger, ...camp.ledger].slice().sort(compareLedgerEvents),
   })
 
   const withSnapshot: RunState = {
     ...next,
     decisions: next.decisions.map((item, index) =>
       index === next.decisions.length - 1
-        ? { ...item, outcomeBaseSnapshot: captureOutcomeBaseSnapshot(next) }
+        ? {
+            ...item,
+            preDecisionSnapshot,
+            outcomeBaseSnapshot: captureOutcomeBaseSnapshot(next),
+          }
         : item,
     ),
   }
   return withSnapshot
+}
+
+/**
+ * Alternate-action counterfactual from a frozen pre-decision snapshot.
+ * Fail-closed — never mutates the live run or Decision Quality.
+ */
+export function projectCounterfactualAlternate(args: {
+  preDecisionSnapshot: OutcomeBaseSnapshot
+  playerText: string
+  rationale: string
+  proposal: ActionProposal
+  horizonDays?: number
+  seed?: string
+}): CounterfactualProjection {
+  const horizonDays = args.horizonDays ?? OUTCOME_HORIZON_DAYS
+  const seed = args.seed ?? `${args.preDecisionSnapshot.seed}:counterfactual:alt`
+  try {
+    const fork = runFromOutcomeSnapshot(args.preDecisionSnapshot, seed)
+    const committed = commitDecision(fork, args.playerText, args.rationale, args.proposal, `lt-cf-${seed}`)
+    const decisionDay = committed.decisions.at(-1)?.day ?? committed.day
+    const projection = projectToHorizon(committed, horizonDays, decisionDay)
+    return {
+      label: args.proposal.actions.map((action) => action.label).join(' · ') || 'Gegenpfad',
+      actionKinds: args.proposal.actions.map((action) => action.kind),
+      projection,
+      seed,
+      failed: projection.status === 'failed',
+    }
+  } catch {
+    return {
+      label: args.proposal.actions.map((action) => action.label).join(' · ') || 'Gegenpfad',
+      actionKinds: args.proposal.actions.map((action) => action.kind),
+      projection: {
+        metrics: { ...args.preDecisionSnapshot.metrics },
+        day: args.preDecisionSnapshot.day,
+        status: args.preDecisionSnapshot.status,
+        daysSimulated: 0,
+        endedEarly: true,
+        endReason: 'failed',
+      },
+      seed,
+      failed: true,
+    }
+  }
+}
+
+/**
+ * Full long-term outcome comparison for a decision: Actual, luck batch, optional alternate path.
+ * Read-only vs `liveRun`; does not rewrite DQ.
+ */
+export function compareDecisionOutcomes(
+  liveRun: RunState,
+  decision: DecisionRecord,
+  options?: { batchSize?: number; horizonDays?: number },
+): OutcomeComparison | null {
+  if (!decision.outcomeBaseSnapshot) return null
+  const horizonDays = options?.horizonDays ?? OUTCOME_HORIZON_DAYS
+  let counterfactual: CounterfactualProjection | null = null
+  if (decision.preDecisionSnapshot) {
+    const alternate = buildAlternateProposal(decision.preDecisionSnapshot, decision.proposal)
+    if (alternate) {
+      counterfactual = projectCounterfactualAlternate({
+        preDecisionSnapshot: decision.preDecisionSnapshot,
+        playerText: decision.playerText,
+        rationale: decision.rationale,
+        proposal: alternate,
+        horizonDays,
+      })
+    }
+  }
+  return compareOutcomes({
+    liveRun,
+    baseSnapshot: decision.outcomeBaseSnapshot,
+    decisionDay: decision.day,
+    batchSize: options?.batchSize ?? 11,
+    horizonDays,
+    counterfactual,
+  })
 }
 
 export function advanceTime(run: RunState, days: number): RunState {
@@ -494,10 +645,16 @@ export function advanceTime(run: RunState, days: number): RunState {
   let scheduledEvents = [...run.scheduledEvents]
   let ledger = [...run.ledger]
 
-  // Per-day stable order: economic tick → analyses → scheduled events → soft deadline.
+  let campaign = run.campaign
+  let decisions = run.decisions
+  let deadlineDay = run.deadlineDay
+  let status: RunState['status'] = run.status
+  const campaignDefinition = getPublishedCampaignForScenario(run.scenarioId)
+
+  // Per-day stable order: economic → analyses → scheduled → soft deadline → campaign.
   for (let day = run.day + 1; day <= targetDay; day += 1) {
     const tick = applyEconomicDay(
-      { metrics, world, ledger, scheduledEvents, decisions: run.decisions },
+      { metrics, world, ledger, scheduledEvents, decisions },
       day,
     )
     metrics = tick.metrics
@@ -519,8 +676,8 @@ export function advanceTime(run: RunState, days: number): RunState {
         metrics,
         ledger,
         scheduledEvents,
-        decisions: run.decisions,
-        deadlineDay: run.deadlineDay,
+        decisions,
+        deadlineDay,
         seed: run.seed,
       },
       day,
@@ -529,6 +686,28 @@ export function advanceTime(run: RunState, days: number): RunState {
       metrics = addMetricDelta(metrics, deadline.metrics)
       ledger = [...ledger, ...deadline.ledger]
       scheduledEvents = [...scheduledEvents, ...deadline.scheduledEvents]
+    }
+
+    if (campaignDefinition) {
+      const dayRun: RunState = {
+        ...run,
+        day,
+        metrics,
+        world,
+        pendingAnalyses,
+        completedAnalyses,
+        scheduledEvents,
+        ledger,
+        campaign,
+        decisions,
+        deadlineDay,
+        status: metrics.cashCents < 0 ? 'failed' : status,
+      }
+      const camp = applyCampaignDay(dayRun, campaignDefinition, day)
+      campaign = camp.campaign
+      deadlineDay = camp.deadlineDay
+      status = camp.status
+      ledger = [...ledger, ...camp.ledger]
     }
   }
 
@@ -542,6 +721,9 @@ export function advanceTime(run: RunState, days: number): RunState {
     completedAnalyses,
     scheduledEvents,
     ledger: ledger.slice().sort(compareLedgerEvents),
+    campaign,
+    deadlineDay,
+    status: status === 'failed' || metrics.cashCents < 0 ? 'failed' : status,
   })
 }
 
@@ -579,6 +761,9 @@ export function getNextPendingEventDay(run: RunState): number | null {
     if (run.day < run.deadlineDay) deadlineDays.push(run.deadlineDay)
     else if (run.day === run.deadlineDay) deadlineDays.push(run.deadlineDay + 1)
   }
-  const pending = [...eventDays, ...analysisDays, ...contractDays, ...deadlineDays]
+  const situationDeadlines = run.campaign.situations
+    .filter((item) => item.status === 'active' && item.deadlineDay !== undefined && item.deadlineDay > run.day)
+    .map((item) => item.deadlineDay as number)
+  const pending = [...eventDays, ...analysisDays, ...contractDays, ...deadlineDays, ...situationDeadlines]
   return pending.length === 0 ? null : Math.min(...pending)
 }

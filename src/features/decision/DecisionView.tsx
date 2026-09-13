@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react'
 import { getPlayerScenario, analysisCompletesAfterDeadline, daysUntilDeadline, type ActionProposal, type RunState } from '../../domain'
+import { CampaignSituationPanel } from '../campaign/CampaignSituationPanel'
 import { Button, Card, Tag } from '../../shared/ui'
 import { ProposalReviewCard } from './ProposalReviewCard'
 
@@ -217,6 +218,7 @@ export function DecisionView({
         <h1>{scenario.decisionTitle}</h1>
         <p>{scenario.decisionContext}</p>
       </div>
+      <CampaignSituationPanel run={run} />
       <Card className="key-decision-card">
         <span className="eyebrow">Key Decision</span>
         <h2>Entscheidung unter Unsicherheit</h2>
