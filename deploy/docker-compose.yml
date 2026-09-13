@@ -53,8 +53,8 @@ services:
       AUTH_DEV_CAPTURE: ${AUTH_DEV_CAPTURE:-0}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://ollama.com/v1}
-      LLM_MODEL: ${LLM_MODEL:-gpt-oss:120b}
-      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-llama3.1:8b}
+      LLM_MODEL: ${LLM_MODEL:-glm-5.3-flash:cloud}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-glm-5.3:cloud}
       LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-25000}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       AI_HOURLY_LIMIT: ${AI_HOURLY_LIMIT:-30}
