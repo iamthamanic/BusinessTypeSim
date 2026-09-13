@@ -1,5 +1,5 @@
 # Composition Gate — glm-flash-routing
-- HEAD_SHA: WORKTREE
+- HEAD_SHA: 0d59d43336055a2323192cbff692ab5fec1585bd
 - Verdict: CLEAR
 ## Event
 AI request selects model via routing matrix then calls provider.
