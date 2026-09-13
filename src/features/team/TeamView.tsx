@@ -1,6 +1,6 @@
 /** Advisors chat — mockup screen 5. */
 import { useState } from 'react'
-import { getScenario, type RunState } from '../../domain'
+import { getPlayerScenario, type RunState } from '../../domain'
 import { Button, Card, Tag } from '../../shared/ui'
 
 export interface AdvisorThread {
@@ -17,7 +17,7 @@ export function TeamView({
   threads: AdvisorThread[]
   onAsk: (advisorId: string, question: string) => Promise<void>
 }) {
-  const scenario = getScenario(run.scenarioId)
+  const scenario = getPlayerScenario(run.scenarioId)
   const [activeId, setActiveId] = useState(scenario.advisors[0]?.id ?? '')
   const [question, setQuestion] = useState('')
   const active = scenario.advisors.find((advisor) => advisor.id === activeId) ?? scenario.advisors[0]
@@ -32,9 +32,6 @@ export function TeamView({
   }
 
   const latestAnalysis = run.completedAnalyses.at(-1)
-  const analysisDef = latestAnalysis
-    ? scenario.analyses.find((item) => item.id === latestAnalysis.analysisId)
-    : null
 
   return (
     <div className="screen-stack">
@@ -46,7 +43,12 @@ export function TeamView({
 
       <div className="advisor-tabs">
         {scenario.advisors.map((item) => (
-          <button type="button" className={item.id === advisor.id ? 'active' : ''} key={item.id} onClick={() => setActiveId(item.id)}>
+          <button
+            type="button"
+            className={item.id === advisor.id ? 'active' : ''}
+            key={item.id}
+            onClick={() => setActiveId(item.id)}
+          >
             <strong>{item.role}</strong>
             <span>{item.name}</span>
           </button>
@@ -73,12 +75,12 @@ export function TeamView({
             </div>
           )}
 
-          {analysisDef ? (
+          {latestAnalysis ? (
             <div className="chat-insight">
               <Tag tone="accent">Evidence</Tag>
-              <strong>{analysisDef.resultTitle}</strong>
-              <p>{analysisDef.resultBody}</p>
-              <small>Sicherheit: {analysisDef.confidence}</small>
+              <strong>{latestAnalysis.resultTitle}</strong>
+              <p>{latestAnalysis.resultBody}</p>
+              <small>Sicherheit: {latestAnalysis.confidence}</small>
             </div>
           ) : null}
         </div>

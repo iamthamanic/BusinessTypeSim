@@ -72,6 +72,16 @@ function containsAny(text: string, keywords: string[]): string[] {
   return keywords.filter((keyword) => normalized.includes(keyword.toLowerCase()))
 }
 
+/** Thrown when a client requests an analysis id not present in the scenario. */
+export class UnknownAnalysisError extends Error {
+  readonly code = 'UNKNOWN_ANALYSIS' as const
+
+  constructor(analysisId: string) {
+    super(`Unknown analysis: ${analysisId}`)
+    this.name = 'UnknownAnalysisError'
+  }
+}
+
 function geometricMean(values: number[]): number {
   const sanitized = values.map((value) => clamp(value, 1, 100))
   const logAverage = sanitized.reduce((sum, value) => sum + Math.log(value), 0) / sanitized.length
@@ -101,10 +111,12 @@ export function createRun(scenarioId: ScenarioDefinition['id'], seed: string): R
     day: 0,
     deadlineDay: scenario.deadlineDays,
     metrics: { ...scenario.startingMetrics },
+    pendingAnalyses: [],
     completedAnalyses: [],
     decisions: [],
     scheduledEvents: [],
     ledger,
+    processedIdempotencyKeys: [],
     status: 'active',
   }
 }
@@ -112,30 +124,70 @@ export function createRun(scenarioId: ScenarioDefinition['id'], seed: string): R
 export function requestAnalysis(run: RunState, analysisId: string): RunState {
   if (run.status !== 'active') return run
   if (run.completedAnalyses.some((item) => item.analysisId === analysisId)) return run
+  if (run.pendingAnalyses.some((item) => item.analysisId === analysisId)) return run
 
   const scenario = getScenario(run.scenarioId)
   const analysis = scenario.analyses.find((candidate) => candidate.id === analysisId)
-  if (!analysis) throw new Error(`Unknown analysis: ${analysisId}`)
+  if (!analysis) throw new UnknownAnalysisError(analysisId)
 
-  const completedAtDay = run.day + analysis.durationDays
-  const next: RunState = {
+  const availableAtDay = run.day + analysis.durationDays
+  return {
     ...run,
     revision: run.revision + 1,
-    day: completedAtDay,
-    completedAnalyses: [...run.completedAnalyses, { analysisId, completedAtDay }],
+    pendingAnalyses: [
+      ...run.pendingAnalyses,
+      {
+        analysisId,
+        requestedAtDay: run.day,
+        availableAtDay,
+      },
+    ],
     ledger: [
       ...run.ledger,
       {
-        id: `analysis_${analysisId}_${completedAtDay}`,
+        id: `analysis_request_${analysisId}_${run.day}`,
         type: 'information',
-        day: completedAtDay,
-        title: analysis.resultTitle,
-        body: analysis.resultBody,
-        tone: analysis.confidence === 'high' ? 'positive' : 'neutral',
+        day: run.day,
+        title: `Analyse gestartet: ${analysis.title}`,
+        body: `Ergebnis erwartet an Simulations-Tag ${availableAtDay} (${analysis.durationDays} Tage).`,
+        tone: 'neutral',
       },
     ],
   }
-  return withFailureStatus(next)
+}
+
+function resolveDueAnalyses(run: RunState, targetDay: number): Pick<RunState, 'pendingAnalyses' | 'completedAnalyses' | 'ledger'> {
+  const scenario = getScenario(run.scenarioId)
+  const stillPending = []
+  const newlyCompleted = [...run.completedAnalyses]
+  const ledger = [...run.ledger]
+
+  for (const pending of run.pendingAnalyses) {
+    if (pending.availableAtDay > targetDay) {
+      stillPending.push(pending)
+      continue
+    }
+    if (newlyCompleted.some((item) => item.analysisId === pending.analysisId)) continue
+    const analysis = scenario.analyses.find((candidate) => candidate.id === pending.analysisId)
+    if (!analysis) continue
+    newlyCompleted.push({
+      analysisId: pending.analysisId,
+      completedAtDay: pending.availableAtDay,
+      resultTitle: analysis.resultTitle,
+      resultBody: analysis.resultBody,
+      confidence: analysis.confidence,
+    })
+    ledger.push({
+      id: `analysis_${pending.analysisId}_${pending.availableAtDay}`,
+      type: 'information',
+      day: pending.availableAtDay,
+      title: analysis.resultTitle,
+      body: analysis.resultBody,
+      tone: analysis.confidence === 'high' ? 'positive' : 'neutral',
+    })
+  }
+
+  return { pendingAnalyses: stillPending, completedAnalyses: newlyCompleted, ledger }
 }
 
 function inferActionKind(text: string, scenario: ScenarioDefinition): Array<{ kind: ActionKind; label: string }> {
@@ -229,8 +281,12 @@ export function commitDecision(
   playerText: string,
   rationale: string,
   proposal: ActionProposal,
+  idempotencyKey?: string,
 ): RunState {
   if (run.status !== 'active') throw new Error('Run is not active')
+  if (idempotencyKey && run.processedIdempotencyKeys.includes(idempotencyKey)) {
+    return run
+  }
   if (run.decisions.some((decision) => decision.playerText === playerText && decision.day === run.day)) {
     return run
   }
@@ -303,6 +359,10 @@ export function commitDecision(
     },
   ]
 
+  const processedIdempotencyKeys = idempotencyKey
+    ? [...run.processedIdempotencyKeys, idempotencyKey]
+    : run.processedIdempotencyKeys
+
   return withFailureStatus({
     ...run,
     revision: run.revision + 1,
@@ -311,6 +371,7 @@ export function commitDecision(
     decisions: [...run.decisions, decision],
     scheduledEvents: [...run.scheduledEvents, ...newScheduled],
     ledger,
+    processedIdempotencyKeys,
   })
 }
 
@@ -318,7 +379,8 @@ export function advanceTime(run: RunState, days: number): RunState {
   if (days <= 0) return run
   const targetDay = run.day + days
   let metrics = { ...run.metrics }
-  const ledger = [...run.ledger]
+  const revealed = resolveDueAnalyses(run, targetDay)
+  const ledger = [...revealed.ledger]
   const scheduledEvents = run.scheduledEvents.map((event) => {
     if (event.resolved || event.dueDay > targetDay) return event
     const draw = drawBps(run.seed, `${event.id}:${event.dueDay}`)
@@ -341,6 +403,8 @@ export function advanceTime(run: RunState, days: number): RunState {
     revision: run.revision + 1,
     day: targetDay,
     metrics,
+    pendingAnalyses: revealed.pendingAnalyses,
+    completedAnalyses: revealed.completedAnalyses,
     scheduledEvents,
     ledger: ledger.sort((a, b) => a.day - b.day),
   })
@@ -370,6 +434,8 @@ function formatSignedMoney(cents: number): string {
 }
 
 export function getNextPendingEventDay(run: RunState): number | null {
-  const pending = run.scheduledEvents.filter((event) => !event.resolved).map((event) => event.dueDay)
+  const eventDays = run.scheduledEvents.filter((event) => !event.resolved).map((event) => event.dueDay)
+  const analysisDays = run.pendingAnalyses.map((item) => item.availableAtDay)
+  const pending = [...eventDays, ...analysisDays]
   return pending.length === 0 ? null : Math.min(...pending)
 }

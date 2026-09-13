@@ -1,5 +1,5 @@
 import type { ActionProposal, RunState } from '../domain'
-import { interpretDecisionLocally } from '../domain'
+import { collectAdvisorToolContext, interpretDecisionLocally } from '../domain'
 import { apiFetch, cloudConfigured, getSession } from './cloud'
 
 interface InterpretResponse {
@@ -64,16 +64,11 @@ export async function askAdvisor(
 }
 
 function localAdvisorAnswer(run: RunState, advisorId: string, question: string): string {
-  const normalized = question.toLowerCase()
+  const toolContext = collectAdvisorToolContext(run, advisorId)
   const base = advisorId.includes('cfo') || advisorId.includes('finance')
     ? 'Aus Finance-Sicht würde ich Cash, Deckungsbeitrag und Downside getrennt betrachten.'
     : advisorId.includes('hr') || advisorId.includes('delivery')
       ? 'Aus People-/Operations-Sicht ist die Umsetzbarkeit wichtiger als ein theoretisch perfekter Business Case.'
       : 'Ich würde Kundenreaktion und strategische Optionalität nicht mit kurzfristigem Umsatz verwechseln.'
-  const dataHint = normalized.includes('cash')
-    ? ` Aktuell liegt Cash bei ${(run.metrics.cashCents / 100 / 1_000_000).toFixed(1)} Mio. €.`
-    : normalized.includes('kunde') || normalized.includes('lidl') || normalized.includes('translog')
-      ? ` Die aktuelle Kundenkonzentration liegt bei ${(run.metrics.customerConcentrationBps / 100).toFixed(0)} %.`
-      : ''
-  return `${base}${dataHint} Für eine belastbare Entscheidung würde ich nur Daten verwenden, die im Run bereits sichtbar oder analysiert wurden.`
+  return `${base}\n\nTool-Kontext (read-only):\n${toolContext}\n\nFrage: ${question}\nIch nutze nur freigeschaltete Evidence und rollenbezogene Tools.`
 }

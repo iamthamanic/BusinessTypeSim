@@ -88,18 +88,26 @@ export function LedgerView({
               <p>{unexpected.body}</p>
             </Card>
           ) : null}
-
-          {nextDay !== null ? (
-            <Card className="next-event-card">
-              <div>
-                <span className="eyebrow">Nächste verzögerte Folge</span>
-                <h3>Tag {nextDay}</h3>
-                <p>Vorspulen löst fällige Ereignisse mit demselben Run-Seed reproduzierbar auf.</p>
-              </div>
-              <Button disabled={busy} onClick={() => void onAdvance()}>Bis Tag {nextDay} vorspulen</Button>
-            </Card>
-          ) : null}
         </>
+      ) : null}
+
+      {nextDay !== null ? (
+        <Card className="next-event-card">
+          <div>
+            <span className="eyebrow">
+              {run.pendingAnalyses.some((item) => item.availableAtDay === nextDay)
+                ? 'Pending Analyse'
+                : 'Nächste verzögerte Folge'}
+            </span>
+            <h3>Tag {nextDay}</h3>
+            <p>
+              {run.pendingAnalyses.some((item) => item.availableAtDay === nextDay)
+                ? 'Vorspulen schaltet fällige Analyse-Ergebnisse frei — erst dann sind die Inhalte sichtbar.'
+                : 'Vorspulen löst fällige Ereignisse mit demselben Run-Seed reproduzierbar auf.'}
+            </p>
+          </div>
+          <Button disabled={busy} onClick={() => void onAdvance()}>Bis Tag {nextDay} vorspulen</Button>
+        </Card>
       ) : null}
 
       {pane === 'ledger' ? (

@@ -26,8 +26,9 @@ export function commitCloudDecision(
   playerText: string,
   rationale: string,
   proposal: ActionProposal,
+  idempotencyKey: string,
 ): Promise<RunState> {
-  return callGame({ op: 'commit', runId, revision, playerText, rationale, proposal })
+  return callGame({ op: 'commit', runId, revision, playerText, rationale, proposal, idempotencyKey })
 }
 
 export function advanceCloudTime(runId: string, revision: number, days: number): Promise<RunState> {
