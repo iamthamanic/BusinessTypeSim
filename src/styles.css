@@ -626,6 +626,12 @@ label > span { font-weight: 700; color: var(--text-primary); }
   color: var(--accent-decision);
   font-weight: 700;
 }
+.offline-hint {
+  margin: 12px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+}
 .failure-card { border-color: color-mix(in srgb, var(--negative) 45%, var(--border-subtle)); }
 
 .bottom-nav {
@@ -695,10 +701,28 @@ label > span { font-weight: 700; color: var(--text-primary); }
   color: inherit;
   padding: 0;
   min-height: 148px;
+  display: grid;
 }
 .scenario-pick--selected {
   border-color: color-mix(in srgb, var(--accent-decision) 55%, var(--border-subtle));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-decision) 25%, transparent);
+}
+.scenario-pick__hit {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  min-height: 148px;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+}
+.scenario-pick__hit:focus-visible {
+  outline: 2px solid var(--accent-decision);
+  outline-offset: -2px;
 }
 .scenario-pick__cover {
   position: absolute;
@@ -733,12 +757,14 @@ label > span { font-weight: 700; color: var(--text-primary); }
 .scenario-pick p { margin: 4px 0; color: color-mix(in srgb, var(--text-secondary) 92%, white); }
 .scenario-pick small { color: color-mix(in srgb, var(--text-secondary) 80%, white); }
 .scenario-pick__actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
+  padding: 0 16px 16px;
   width: 100%;
 }
 .scenario-pick__actions > .button--primary { order: 2; }

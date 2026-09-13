@@ -17,6 +17,8 @@ export type {
   ManagementAction,
   MetricDefinition,
   MetricTone,
+  PendingAnalysis,
+  PlayerAnalysisDefinition,
   RunState,
   ScenarioDefinition,
   ScenarioId,
@@ -34,4 +36,20 @@ export {
   requestAnalysis,
   scoreDecision,
   summarizeMetricDelta,
+  UnknownAnalysisError,
 } from './engine.ts'
+
+export {
+  getPlayerScenario,
+  getUnlockedAnalysis,
+  listPlayerAnalyses,
+  normalizeRunState,
+  toPlayerAnalysis,
+} from './player-view.ts'
+
+export {
+  collectAdvisorToolContext,
+  runAdvisorTool,
+  toolsForAdvisor,
+  type AdvisorToolId,
+} from './advisor-tools.ts'

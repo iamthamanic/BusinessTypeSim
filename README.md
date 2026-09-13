@@ -10,15 +10,19 @@ Der erste vollständige MVP-Core-Loop ist implementiert:
 
 - sieben spielbare Unternehmensfälle: SaaS, Produktion, Services, Klinik, Marketplace, Energie, Retail;
 - Mobile-first Decision Room mit Company View, Advisors und Timeline;
-- Analysen verbrauchen Simulationszeit und schalten Informationen frei;
+- Analysen werden angefordert als **Pending** (Dauer sichtbar); Ergebnisse erscheinen erst nach Fortschreiben der Zeit und nicht vorher in der Player-UI;
 - freie Texteingabe wird in validierte ManagementActions strukturiert;
 - Decision Quality mit sechs Dimensionen, getrennt vom Outcome;
 - seeded probabilistische Folgen und verzögerte Events;
 - lokaler Demo-Run mit Persistenz im Gerät;
 - optionaler Cloud-Run über self-hosted Postgres + Hono API (Hostinger Docker);
+- Cloud offline: Entscheidungs-Entwurf lokal speichern, Commit erst online;
+- Commit-Idempotenz (`idempotencyKey`) inkl. Reconcile bei Revision-Konflikt;
+- rollenbezogene read-only Advisor-Tools (Domain), LLM nur mit freigeschaltetem Kontext;
 - Ollama-Cloud-Adapter (`OLLAMA_API_KEY` + OpenAI-kompatibles `https://ollama.com/v1`) mit lokalem Fallback;
 - read-only Real-World-Debrief über Tavily Search + LLM-Zusammenfassung;
-- Capacitor-Konfiguration für Android und iOS.
+- Capacitor-Konfiguration für Android und iOS;
+- Vitest-Determinismus/AuthZ-Gates und Playwright-Smoke/`test:e2e` im Repo.
 
 Produkt- und Engineering-Verträge:
 
@@ -72,6 +76,7 @@ Checks:
 
 ```bash
 npm run checks
+npm run test:e2e   # Playwright (startet Vite bei Bedarf)
 ```
 
 Deterministischer Domain-Self-Check ohne installierte App-Dependencies:
@@ -131,6 +136,7 @@ Noch nicht festgelegt. Die Sichtbarkeit des GitHub-Repositories ersetzt keine Li
 
 ## Recent changes
 
+- **2026-09-13** — PRD-MVP Integrity: Pending-Analysen, Hidden Info Read-Model, Advisor-Tools, Commit-Idempotenz, Cloud-Offline-Draft, Vitest + Playwright (`feat/prd-mvp-integrity-gaps`)
 - **2026-09-13** — GitHub Actions Deploy-Pipeline für Hostinger (`docs/GITHUB_SECRETS.md`)
 - **2026-09-12** — Domain nach `shared/domain/` verschoben; `supabase/`-Ordner entfernt
 - **2026-09-12** — Hostinger thin stack: Postgres + Hono API + nginx; E-Mail/Passwort-Auth

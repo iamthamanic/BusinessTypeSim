@@ -3,7 +3,7 @@
  * Mockup screens 4, 6, 7, 8.
  */
 import { useEffect, useState } from 'react'
-import { getScenario, type ActionProposal, type RunState } from '../../domain'
+import { getPlayerScenario, type ActionProposal, type RunState } from '../../domain'
 import { Button, Card, SectionTitle, Tag } from '../../shared/ui'
 
 export type DecisionPhase = 'room' | 'analyses' | 'compose' | 'rationale' | 'review' | 'simulating'
@@ -45,6 +45,7 @@ export function DecisionView({
   proposal,
   busy,
   phase,
+  commitBlockedReason,
   onPhase,
   onDecisionText,
   onRationale,
@@ -60,6 +61,7 @@ export function DecisionView({
   proposal: ActionProposal | null
   busy: boolean
   phase: DecisionPhase
+  commitBlockedReason?: string | null
   onPhase: (phase: DecisionPhase) => void
   onDecisionText: (value: string) => void
   onRationale: (value: string) => void
@@ -69,7 +71,7 @@ export function DecisionView({
   onResetProposal: () => void
   onOpenTeam: () => void
 }) {
-  const scenario = getScenario(run.scenarioId)
+  const scenario = getPlayerScenario(run.scenarioId)
   const daysLeft = Math.max(0, run.deadlineDay - run.day)
 
   if (phase === 'simulating') return <SimulationScreen busy={busy} />
@@ -81,21 +83,30 @@ export function DecisionView({
           <button type="button" className="text-back" onClick={() => onPhase('room')}>‹ Decision Room</button>
           <span className="eyebrow">Informationsbeschaffung</span>
           <h1>Analysen anfordern</h1>
-          <p>Jede Analyse verbraucht Simulationszeit und schaltet Evidence frei.</p>
+          <p>Analysen benötigen Simulationszeit. Das Ergebnis erscheint erst an dem Fälligkeitstag.</p>
         </div>
         <Card className="analysis-menu">
           {scenario.analyses.map((analysis, index) => {
-            const complete = run.completedAnalyses.some((item) => item.analysisId === analysis.id)
+            const complete = run.completedAnalyses.find((item) => item.analysisId === analysis.id)
+            const pending = run.pendingAnalyses.find((item) => item.analysisId === analysis.id)
             return (
-              <div className={`analysis-menu__row${complete ? ' is-done' : ''}`} key={analysis.id}>
+              <div className={`analysis-menu__row${complete ? ' is-done' : ''}${pending ? ' is-pending' : ''}`} key={analysis.id}>
                 <AnalysisIcon index={index} />
                 <div>
                   <strong>{analysis.title}</strong>
-                  <p>{complete ? analysis.resultBody : analysis.description}</p>
-                  <small>{complete ? `Sicherheit: ${analysis.confidence}` : `${analysis.durationDays} Simulations-Tage`}</small>
+                  <p>{complete ? complete.resultBody : analysis.description}</p>
+                  <small>
+                    {complete
+                      ? `Sicherheit: ${complete.confidence}`
+                      : pending
+                        ? `Läuft · Ergebnis an Tag ${pending.availableAtDay}`
+                        : `${analysis.durationDays} Simulations-Tage`}
+                  </small>
                 </div>
                 {complete ? (
                   <Tag tone="positive">Fertig</Tag>
+                ) : pending ? (
+                  <Tag tone="warning">Pending</Tag>
                 ) : (
                   <Button variant="secondary" disabled={busy} onClick={() => void onAnalysis(analysis.id)}>Anfordern</Button>
                 )}
@@ -180,12 +191,13 @@ export function DecisionView({
             <div className="button-row">
               <Button variant="secondary" onClick={() => onPhase('compose')}>Überarbeiten</Button>
               <Button
-                disabled={busy || !proposal}
+                disabled={busy || !proposal || Boolean(commitBlockedReason)}
                 onClick={() => { onPhase('simulating'); void onConfirm() }}
               >
                 Committen & simulieren
               </Button>
             </div>
+            {commitBlockedReason ? <p className="offline-hint" role="status">{commitBlockedReason}</p> : null}
           </Card>
         ) : null}
       </div>
@@ -214,7 +226,7 @@ export function DecisionView({
           <span className="action-row__chevron" aria-hidden="true">›</span>
         </button>
         <button type="button" className="action-row" onClick={() => onPhase('analyses')}>
-          <div><strong>Weitere Informationen anfordern</strong><span>{run.completedAnalyses.length}/{scenario.analyses.length} Analysen</span></div>
+          <div><strong>Weitere Informationen anfordern</strong><span>{run.completedAnalyses.length}/{scenario.analyses.length} freigeschaltet{run.pendingAnalyses.length ? ` · ${run.pendingAnalyses.length} pending` : ''}</span></div>
           <span className="action-row__chevron" aria-hidden="true">›</span>
         </button>
         <button type="button" className="action-row" onClick={() => onPhase('analyses')}>

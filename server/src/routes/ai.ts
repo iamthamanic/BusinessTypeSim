@@ -5,8 +5,15 @@ import { requireAuth, type AppVariables } from '../auth.ts'
 import { actionProposalSchema } from '../contracts.ts'
 import { pool } from '../db.ts'
 import { callChatModel } from '../llm.ts'
+import { interpretOwnedRunLookup } from '../owned-run.ts'
 import { claimAiRequest } from '../rate-limit.ts'
-import { getScenario, type ActionProposal, type RunState } from '../../../shared/domain/index.ts'
+import {
+  collectAdvisorToolContext,
+  getScenario,
+  normalizeRunState,
+  type ActionProposal,
+  type RunState,
+} from '../../../shared/domain/index.ts'
 
 const inputSchema = z.discriminatedUnion('mode', [
   z.object({
@@ -25,14 +32,12 @@ const inputSchema = z.discriminatedUnion('mode', [
 
 function visibleContext(run: RunState) {
   const scenario = getScenario(run.scenarioId)
-  const analyses = scenario.analyses
-    .filter((analysis) => run.completedAnalyses.some((item) => item.analysisId === analysis.id))
-    .map((analysis) => ({
-      id: analysis.id,
-      title: analysis.resultTitle,
-      result: analysis.resultBody,
-      confidence: analysis.confidence,
-    }))
+  const analyses = run.completedAnalyses.map((item) => ({
+    id: item.analysisId,
+    title: item.resultTitle,
+    result: item.resultBody,
+    confidence: item.confidence,
+  }))
   return {
     company: scenario.companyName,
     situation: scenario.decisionContext,
@@ -61,24 +66,29 @@ aiRoutes.post('/', requireAuth, async (c) => {
     const allowed = await claimAiRequest(user.id)
     if (!allowed) return c.json({ error: 'RATE_LIMITED' }, 429)
 
-    const loaded = await pool.query<{ state: RunState }>(
-      `select state from game_runs where id = $1 and owner_id = $2`,
+    const loaded = await pool.query<{ owner_id: string; revision: number; state: RunState }>(
+      `select owner_id, revision, state from game_runs where id = $1 and owner_id = $2`,
       [input.runId, user.id],
     )
-    const run = loaded.rows[0]?.state
-    if (!run) return c.json({ error: 'RUN_NOT_FOUND' }, 404)
+    const owned = interpretOwnedRunLookup(loaded.rows, user.id)
+    if (!owned.ok) return c.json({ error: owned.error }, owned.status)
+    const run = normalizeRunState(owned.row.state)
     const scenario = getScenario(run.scenarioId)
     const contextData = visibleContext(run)
 
     if (input.mode === 'advisor') {
       const advisor = scenario.advisors.find((candidate) => candidate.id === input.advisorId)
       if (!advisor) return c.json({ error: 'ADVISOR_NOT_FOUND' }, 404)
+      const toolContext = collectAdvisorToolContext(run, input.advisorId)
       const answer = await callChatModel([
         {
           role: 'system',
-          content: `Du spielst ${advisor.name}, ${advisor.role}. Haltung: ${advisor.stance}. Nutze ausschließlich den sichtbaren Unternehmenskontext. Benenne Unsicherheit offen. Erfinde keine Zahlen.`,
+          content: `Du spielst ${advisor.name}, ${advisor.role}. Haltung: ${advisor.stance}. Nutze ausschließlich Tool-Kontext und sichtbaren Unternehmenskontext. Benenne Unsicherheit offen. Erfinde keine Zahlen. Keine gesperrten Analysen.`,
         },
-        { role: 'user', content: `Sichtbarer Kontext:\n${JSON.stringify(contextData)}\n\nFrage: ${input.question}` },
+        {
+          role: 'user',
+          content: `Tool-Kontext:\n${toolContext}\n\nSichtbarer Kontext:\n${JSON.stringify(contextData)}\n\nFrage: ${input.question}`,
+        },
       ])
       return c.json({ answer })
     }

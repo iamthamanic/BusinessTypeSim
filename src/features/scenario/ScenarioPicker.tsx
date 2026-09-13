@@ -96,43 +96,56 @@ export function ScenarioPicker({
         {visible.map((scenario) => {
           const isSelected = selected === scenario.id
           return (
-            <button
-              type="button"
+            <article
               key={scenario.id}
               className={`scenario-pick${isSelected ? ' scenario-pick--selected' : ''}`}
-              onClick={() => setSelected(scenario.id)}
             >
-              <span
-                className="scenario-pick__cover"
-                style={{ backgroundImage: `url(${companyCoverSrc(scenario.id)})` }}
-                aria-hidden="true"
-              />
-              <span className="scenario-pick__scrim" aria-hidden="true" />
-              <div className="scenario-pick__content">
-                <div className="scenario-pick__row">
-                  <CompanyMark id={scenario.id} />
-                  <div className="scenario-pick__body">
-                    <div className="scenario-pick__top">
-                      <strong>{scenario.companyName}</strong>
-                      <Tag tone="accent">{scenario.stage}</Tag>
+              <div
+                role="button"
+                tabIndex={0}
+                aria-pressed={isSelected}
+                aria-label={`Szenario ${scenario.companyName} auswählen`}
+                className="scenario-pick__hit"
+                onClick={() => setSelected(scenario.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setSelected(scenario.id)
+                  }
+                }}
+              >
+                <span
+                  className="scenario-pick__cover"
+                  style={{ backgroundImage: `url(${companyCoverSrc(scenario.id)})` }}
+                  aria-hidden="true"
+                />
+                <span className="scenario-pick__scrim" aria-hidden="true" />
+                <div className="scenario-pick__content">
+                  <div className="scenario-pick__row">
+                    <CompanyMark id={scenario.id} />
+                    <div className="scenario-pick__body">
+                      <div className="scenario-pick__top">
+                        <strong>{scenario.companyName}</strong>
+                        <Tag tone="accent">{scenario.stage}</Tag>
+                      </div>
+                      <span className="scenario-pick__industry">{scenario.industry}</span>
+                      <p>{scenario.headline}</p>
+                      <small>{scenario.scaleLabel}</small>
                     </div>
-                    <span className="scenario-pick__industry">{scenario.industry}</span>
-                    <p>{scenario.headline}</p>
-                    <small>{scenario.scaleLabel}</small>
                   </div>
                 </div>
-                {isSelected ? (
-                  <div className="scenario-pick__actions" onClick={(event) => event.stopPropagation()}>
-                    <Button disabled={busy} onClick={() => void onStart(scenario.id, 'local')}>Demo starten</Button>
-                    {sessionEmail ? (
-                      <Button variant="secondary" disabled={busy} onClick={() => void onStart(scenario.id, 'cloud')}>
-                        Cloud-Run
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
-            </button>
+              {isSelected ? (
+                <div className="scenario-pick__actions">
+                  <Button disabled={busy} onClick={() => void onStart(scenario.id, 'local')}>Demo starten</Button>
+                  {sessionEmail ? (
+                    <Button variant="secondary" disabled={busy} onClick={() => void onStart(scenario.id, 'cloud')}>
+                      Cloud-Run
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+            </article>
           )
         })}
       </div>

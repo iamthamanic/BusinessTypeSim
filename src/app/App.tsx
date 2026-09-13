@@ -8,7 +8,7 @@ import {
   commitDecision,
   createRun,
   getNextPendingEventDay,
-  getScenario,
+  getPlayerScenario,
   requestAnalysis,
   type ActionProposal,
   type DecisionRecord,
@@ -23,6 +23,12 @@ import { OnboardingScreen } from '../features/onboarding/OnboardingScreen'
 import { ScenarioPicker } from '../features/scenario/ScenarioPicker'
 import { TeamView, type AdvisorThread } from '../features/team/TeamView'
 import { askAdvisor, interpretDecision } from '../infrastructure/ai'
+import {
+  clearCloudDraft,
+  isBrowserOnline,
+  loadCloudDraft,
+  saveCloudDraft,
+} from '../infrastructure/cloud-draft'
 import {
   advanceCloudTime,
   commitCloudDecision,
@@ -47,6 +53,10 @@ function randomSeed(): string {
   return `${bytes[0]?.toString(36)}-${bytes[1]?.toString(36)}`
 }
 
+function newIdempotencyKey(): string {
+  return crypto.randomUUID()
+}
+
 export function App() {
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem(ONBOARDING_KEY) === '1')
   const [run, setRun] = useState<RunState | null>(() => loadLocalRun())
@@ -61,6 +71,8 @@ export function App() {
   const [decisionPhase, setDecisionPhase] = useState<DecisionPhase>('room')
   const [threads, setThreads] = useState<AdvisorThread[]>([])
   const [debrief, setDebrief] = useState<DebriefResult | null>(null)
+  const [online, setOnline] = useState(() => isBrowserOnline())
+  const [commitKey, setCommitKey] = useState(() => newIdempotencyKey())
 
   useEffect(() => {
     void getSession().then((session) => setSessionEmail(session?.email ?? null))
@@ -70,8 +82,50 @@ export function App() {
     if (run && runMode === 'local') saveLocalRun(run)
   }, [run, runMode])
 
-  const scenario = run ? getScenario(run.scenarioId) : null
+  useEffect(() => {
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', off)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!run || runMode !== 'cloud') return
+    saveCloudDraft({
+      runId: run.runId,
+      decisionText,
+      rationale,
+      proposal,
+      updatedAt: new Date().toISOString(),
+    })
+  }, [run, runMode, decisionText, rationale, proposal])
+
+  useEffect(() => {
+    if (!run || runMode !== 'cloud') return
+    const draft = loadCloudDraft(run.runId)
+    if (!draft) return
+    setDecisionText(draft.decisionText)
+    setRationale(draft.rationale)
+    setProposal(draft.proposal)
+  }, [run?.runId, runMode])
+
+  /** Playwright-only: force cloud UI semantics (offline commit gate) without a live API. */
+  useEffect(() => {
+    if (!run) return
+    if (localStorage.getItem('bt.e2e.force-cloud-ui') !== '1') return
+    setRunMode('cloud')
+  }, [run?.runId])
+
+  const scenario = run ? getPlayerScenario(run.scenarioId) : null
   const latestDecision = run?.decisions.at(-1) ?? null
+  const commitBlockedReason =
+    runMode === 'cloud' && !online
+      ? 'Offline: Entwurf ist gespeichert. Commit erst möglich, wenn die Verbindung wieder online ist.'
+      : null
 
   async function startScenario(scenarioId: ScenarioId, mode: RunMode) {
     setBusy(true)
@@ -81,6 +135,7 @@ export function App() {
     setRationale('')
     setDebrief(null)
     setDecisionPhase('room')
+    setCommitKey(newIdempotencyKey())
     try {
       const seed = randomSeed()
       const next = mode === 'cloud' ? await createCloudRun(scenarioId, seed) : createRun(scenarioId, seed)
@@ -96,6 +151,7 @@ export function App() {
   }
 
   function resetRun() {
+    if (run && runMode === 'cloud') clearCloudDraft(run.runId)
     clearLocalRun()
     setRun(null)
     setProposal(null)
@@ -113,6 +169,11 @@ export function App() {
         ? await requestCloudAnalysis(run.runId, run.revision, analysisId)
         : requestAnalysis(run, analysisId)
       setRun(next)
+      setNotice(
+        next.pendingAnalyses.some((item) => item.analysisId === analysisId)
+          ? 'Analyse gestartet — Ergebnis erscheint nach Fortschreiben der Zeit.'
+          : null,
+      )
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Analyse fehlgeschlagen.')
     } finally {
@@ -136,14 +197,24 @@ export function App() {
 
   async function confirmDecision() {
     if (!run || !proposal) return
+    if (runMode === 'cloud' && !isBrowserOnline()) {
+      setNotice('Offline: Commit ist erst wieder online möglich. Dein Entwurf bleibt gespeichert.')
+      setDecisionPhase('review')
+      return
+    }
     setBusy(true)
     setNotice(null)
+    const key = commitKey
     try {
       const next = runMode === 'cloud'
-        ? await commitCloudDecision(run.runId, run.revision, decisionText.trim(), rationale.trim(), proposal)
-        : commitDecision(run, decisionText.trim(), rationale.trim(), proposal)
+        ? await commitCloudDecision(run.runId, run.revision, decisionText.trim(), rationale.trim(), proposal, key)
+        : commitDecision(run, decisionText.trim(), rationale.trim(), proposal, key)
       setRun(next)
       setProposal(null)
+      setDecisionText('')
+      setRationale('')
+      setCommitKey(newIdempotencyKey())
+      if (runMode === 'cloud') clearCloudDraft(run.runId)
       setDecisionPhase('room')
       setView('ledger')
     } catch (error) {
@@ -158,7 +229,7 @@ export function App() {
     if (!run) return
     const nextDay = getNextPendingEventDay(run)
     if (nextDay === null) {
-      setNotice('Aktuell ist kein verzögertes Ereignis geplant.')
+      setNotice('Aktuell ist kein verzögertes Ereignis oder keine pending Analyse geplant.')
       return
     }
     const days = Math.max(1, nextDay - run.day)
@@ -241,6 +312,7 @@ export function App() {
         </div>
         <div className="topbar__actions">
           <Tag tone={runMode === 'cloud' ? 'positive' : 'neutral'}>{runMode === 'cloud' ? 'Cloud' : 'Demo lokal'}</Tag>
+          {runMode === 'cloud' && !online ? <Tag tone="warning">Offline</Tag> : null}
           <button className="icon-button" onClick={resetRun} aria-label="Run beenden">×</button>
         </div>
       </header>
@@ -279,6 +351,7 @@ export function App() {
             proposal={proposal}
             busy={busy}
             phase={decisionPhase}
+            commitBlockedReason={commitBlockedReason}
             onPhase={setDecisionPhase}
             onDecisionText={setDecisionText}
             onRationale={setRationale}

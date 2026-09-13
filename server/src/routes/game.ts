@@ -4,12 +4,15 @@ import { z } from 'zod'
 import { requireAuth, type AppVariables } from '../auth.ts'
 import { actionProposalSchema } from '../contracts.ts'
 import { pool } from '../db.ts'
+import { interpretOwnedRunLookup } from '../owned-run.ts'
 import {
   advanceTime,
   commitDecision,
   createRun,
+  normalizeRunState,
   requestAnalysis,
   scenarios,
+  UnknownAnalysisError,
   type RunState,
   type ScenarioId,
 } from '../../../shared/domain/index.ts'
@@ -29,6 +32,7 @@ const requestSchema = z.discriminatedUnion('op', [
     playerText: z.string().min(3).max(4000),
     rationale: z.string().max(6000),
     proposal: actionProposalSchema,
+    idempotencyKey: z.string().min(8).max(120),
   }),
   z.object({
     op: z.literal('advance'),
@@ -63,20 +67,29 @@ gameRoutes.post('/', requireAuth, async (c) => {
       return c.json({ run }, 201)
     }
 
-    const loaded = await pool.query<{ id: string; revision: number; state: RunState }>(
-      `select id, revision, state from game_runs where id = $1 and owner_id = $2`,
+    const loaded = await pool.query<{ id: string; owner_id: string; revision: number; state: RunState }>(
+      `select id, owner_id, revision, state from game_runs where id = $1 and owner_id = $2`,
       [input.runId, user.id],
     )
-    const row = loaded.rows[0]
-    if (!row) return c.json({ error: 'RUN_NOT_FOUND' }, 404)
+    const owned = interpretOwnedRunLookup(loaded.rows, user.id)
+    if (!owned.ok) return c.json({ error: owned.error }, owned.status)
+
+    const row = owned.row
+    const state = normalizeRunState(row.state)
     if (row.revision !== input.revision) {
+      if (
+        input.op === 'commit' &&
+        state.processedIdempotencyKeys.includes(input.idempotencyKey)
+      ) {
+        return c.json({ run: state })
+      }
       return c.json({ error: 'REVISION_CONFLICT', currentRevision: row.revision }, 409)
     }
 
     let next: RunState
-    if (input.op === 'analysis') next = requestAnalysis(row.state, input.analysisId)
-    else if (input.op === 'advance') next = advanceTime(row.state, input.days)
-    else next = commitDecision(row.state, input.playerText, input.rationale, input.proposal)
+    if (input.op === 'analysis') next = requestAnalysis(state, input.analysisId)
+    else if (input.op === 'advance') next = advanceTime(state, input.days)
+    else next = commitDecision(state, input.playerText, input.rationale, input.proposal, input.idempotencyKey)
 
     const updated = await pool.query(
       `update game_runs
@@ -88,6 +101,9 @@ gameRoutes.post('/', requireAuth, async (c) => {
     if (updated.rowCount === 0) return c.json({ error: 'REVISION_CONFLICT' }, 409)
     return c.json({ run: next })
   } catch (error) {
+    if (error instanceof UnknownAnalysisError) {
+      return c.json({ error: error.code }, 400)
+    }
     console.error('game error', error instanceof Error ? error.message : 'unknown')
     return c.json({ error: 'INTERNAL_ERROR' }, 500)
   }

@@ -49,10 +49,28 @@ export interface AnalysisDefinition {
   title: string
   description: string
   durationDays: number
+  /** Authoring-only; never expose via player read-model until unlock. */
   resultTitle: string
+  /** Authoring-only; never expose via player read-model until unlock. */
   resultBody: string
   confidence: 'low' | 'medium' | 'high'
   evidenceTags: string[]
+}
+
+/** Player-facing analysis catalog entry (no spoilers). */
+export interface PlayerAnalysisDefinition {
+  id: AnalysisId
+  title: string
+  description: string
+  durationDays: number
+  confidence: 'low' | 'medium' | 'high'
+  evidenceTags: string[]
+}
+
+export interface PendingAnalysis {
+  analysisId: AnalysisId
+  requestedAtDay: number
+  availableAtDay: number
 }
 
 export interface ScenarioEffect {
@@ -130,6 +148,9 @@ export interface ActionProposal {
 export interface AnalysisResult {
   analysisId: AnalysisId
   completedAtDay: number
+  resultTitle: string
+  resultBody: string
+  confidence: 'low' | 'medium' | 'high'
 }
 
 export interface ScheduledEvent {
@@ -194,9 +215,11 @@ export interface RunState {
   day: number
   deadlineDay: number
   metrics: CompanyMetrics
+  pendingAnalyses: PendingAnalysis[]
   completedAnalyses: AnalysisResult[]
   decisions: DecisionRecord[]
   scheduledEvents: ScheduledEvent[]
   ledger: LedgerEvent[]
+  processedIdempotencyKeys: string[]
   status: 'active' | 'completed' | 'failed'
 }

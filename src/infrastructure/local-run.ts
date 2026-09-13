@@ -1,11 +1,11 @@
-import type { RunState } from '../domain'
+import { normalizeRunState, type RunState } from '../domain'
 
 const key = 'business-type:active-run:v1'
 
 export function loadLocalRun(): RunState | null {
   try {
     const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as RunState) : null
+    return raw ? normalizeRunState(JSON.parse(raw) as RunState) : null
   } catch {
     return null
   }
