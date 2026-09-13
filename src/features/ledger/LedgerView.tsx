@@ -236,7 +236,11 @@ export function LedgerView({
           <SectionTitle title="Ledger" meta={`${run.ledger.length} Ereignisse`} />
           <div className="ledger">
             {run.ledger.slice().reverse().map((event) => (
-              <div className={`ledger-item ledger-item--${event.tone}${event.type === 'deadline_consequence' || event.id === 'deadline_missed' ? ' ledger-item--deadline' : ''}${event.type === 'economic' ? ' ledger-item--economic' : ''}`} key={event.id}>
+              <div
+                className={`ledger-item ledger-item--${event.tone}${event.type === 'deadline_consequence' || event.id === 'deadline_missed' ? ' ledger-item--deadline' : ''}${event.type === 'economic' ? ' ledger-item--economic' : ''}`}
+                data-ledger-type={event.type}
+                key={event.id}
+              >
                 <span className="ledger-dot" />
                 <div>
                   <small>Tag {event.day} · {event.type.replaceAll('_', ' ')}</small>
