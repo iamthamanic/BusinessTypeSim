@@ -291,13 +291,71 @@ a { color: inherit; }
 .scenario-card__scale { color: var(--text-secondary); }
 .scenario-card__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .auth-card { display: grid; gap: 14px; }
-.auth-form { display: grid; gap: 10px; }
+.auth-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 8px;
+}
+.auth-panel h2 { margin: 0; font-size: 1.35rem; }
+.auth-panel__email { margin: 0; font-weight: 700; word-break: break-word; }
+.auth-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.auth-panel__status { margin: 0; font-size: 0.92rem; }
+.auth-panel__status--error { color: var(--danger, #f07178); }
+.auth-panel__status--ok { color: var(--accent-positive, #7dcea0); }
+.auth-panel__status--warn { color: var(--warning, #e5c07b); }
+.auth-panel__empty { color: var(--text-secondary); margin: 0; }
+.auth-form { display: grid; gap: 12px; }
+.auth-link {
+  background: none;
+  border: 0;
+  color: var(--accent-decision);
+  text-align: left;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.auth-link:disabled { opacity: 0.42; cursor: not-allowed; }
+.auth-session-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.auth-session-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.auth-session-list li > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.auth-session-list small {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
 .auth-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .auth-row input { flex: 1 1 220px; }
 .auth-row--actions { justify-content: flex-end; }
 .auth-row--actions > .button--primary { order: 2; }
 .auth-row--actions > .button:not(.button--primary) { order: 1; }
 .auth-row--session { justify-content: space-between; }
+
+@media (max-width: 480px) {
+  .auth-panel__actions { flex-direction: column; align-items: stretch; }
+  .auth-panel__actions .button { width: 100%; }
+}
 
 input, textarea {
   width: 100%;
