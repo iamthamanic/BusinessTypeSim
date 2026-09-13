@@ -80,8 +80,21 @@ export async function apiFetch<T>(
       return apiFetch<T>(path, { ...init, auth: true, _retried: true })
     }
   }
-  const payload = await response.json().catch(() => ({})) as T & { error?: string }
+  const payload = await response.json().catch(() => ({})) as T & {
+    error?: string
+    blockers?: Array<{ message?: string }>
+  }
   if (!response.ok) {
+    if (
+      payload.error === 'CONSTRAINT_VIOLATION'
+      && Array.isArray(payload.blockers)
+      && payload.blockers.length > 0
+    ) {
+      const messages = payload.blockers
+        .map((item) => item.message)
+        .filter((message): message is string => typeof message === 'string' && message.length > 0)
+      if (messages.length > 0) throw new Error(messages.join(' '))
+    }
     throw new Error(payload.error ?? `HTTP_${response.status}`)
   }
   return payload

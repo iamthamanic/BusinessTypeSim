@@ -375,6 +375,9 @@ export type LedgerEventType =
   | 'immediate_effect'
   | 'delayed_effect'
   | 'review'
+  | 'economic'
+  | 'deadline_consequence'
+  | 'system'
 
 export interface LedgerEvent {
   id: string

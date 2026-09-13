@@ -4,6 +4,7 @@ import {
   inferParamsFromText,
 } from './action-params.ts'
 import { ConstraintViolationError, evaluateConstraints, hasConstraintBlockers } from './constraints.ts'
+import { applyEconomicDay, softDeadlineConsequence } from './economic-time.ts'
 import { getScenario, getScenarioAtVersion } from './scenarios.ts'
 import type {
   ActionKind,
@@ -172,17 +173,26 @@ export function requestAnalysis(run: RunState, analysisId: string): RunState {
   }
 }
 
-function resolveDueAnalyses(run: RunState, targetDay: number): Pick<RunState, 'pendingAnalyses' | 'completedAnalyses' | 'ledger'> {
+function resolveDueAnalyses(
+  run: RunState,
+  day: number,
+  pendingAnalyses: RunState['pendingAnalyses'],
+  completedAnalyses: RunState['completedAnalyses'],
+  ledger: LedgerEvent[],
+): Pick<RunState, 'pendingAnalyses' | 'completedAnalyses'> & { ledger: LedgerEvent[] } {
   const scenario = scenarioForRun(run)
   const stillPending = []
-  const newlyCompleted = [...run.completedAnalyses]
-  const ledger = [...run.ledger]
+  const newlyCompleted = [...completedAnalyses]
+  const nextLedger = [...ledger]
 
-  for (const pending of run.pendingAnalyses) {
-    if (pending.availableAtDay > targetDay) {
-      stillPending.push(pending)
-      continue
-    }
+  const dueToday = pendingAnalyses
+    .filter((pending) => pending.availableAtDay === day)
+    .slice()
+    .sort((a, b) => a.analysisId.localeCompare(b.analysisId))
+
+  const remaining = pendingAnalyses.filter((pending) => pending.availableAtDay !== day)
+
+  for (const pending of dueToday) {
     if (newlyCompleted.some((item) => item.analysisId === pending.analysisId)) continue
     const analysis = scenario.analyses.find((candidate) => candidate.id === pending.analysisId)
     if (!analysis) continue
@@ -193,7 +203,7 @@ function resolveDueAnalyses(run: RunState, targetDay: number): Pick<RunState, 'p
       resultBody: analysis.resultBody,
       confidence: analysis.confidence,
     })
-    ledger.push({
+    nextLedger.push({
       id: `analysis_${pending.analysisId}_${pending.availableAtDay}`,
       type: 'information',
       day: pending.availableAtDay,
@@ -203,7 +213,90 @@ function resolveDueAnalyses(run: RunState, targetDay: number): Pick<RunState, 'p
     })
   }
 
-  return { pendingAnalyses: stillPending, completedAnalyses: newlyCompleted, ledger }
+  stillPending.push(...remaining.filter((pending) => pending.availableAtDay > day))
+  // Keep future pending; drop any that somehow sit in the past without completion.
+  for (const pending of remaining) {
+    if (pending.availableAtDay < day && !newlyCompleted.some((item) => item.analysisId === pending.analysisId)) {
+      stillPending.push(pending)
+    } else if (pending.availableAtDay > day) {
+      // already pushed above via filter — avoid duplicates
+    }
+  }
+
+  const uniquePending = new Map(stillPending.map((item) => [item.analysisId, item]))
+  for (const pending of remaining) {
+    if (pending.availableAtDay > day) uniquePending.set(pending.analysisId, pending)
+  }
+
+  return {
+    pendingAnalyses: Array.from(uniquePending.values()),
+    completedAnalyses: newlyCompleted,
+    ledger: nextLedger,
+  }
+}
+
+function resolveScheduledEventsForDay(
+  run: Pick<RunState, 'seed'>,
+  day: number,
+  events: ScheduledEvent[],
+  metrics: CompanyMetrics,
+  ledger: LedgerEvent[],
+): { scheduledEvents: ScheduledEvent[]; metrics: CompanyMetrics; ledger: LedgerEvent[] } {
+  let nextMetrics = metrics
+  const nextLedger = [...ledger]
+  const sortedDue = events
+    .map((event, index) => ({ event, index }))
+    .filter(({ event }) => !event.resolved && event.dueDay === day)
+    .sort((a, b) => a.event.id.localeCompare(b.event.id) || a.index - b.index)
+
+  const resolvedIds = new Set(sortedDue.map(({ event }) => event.id))
+  const scheduledEvents = events.map((event) => {
+    if (!resolvedIds.has(event.id)) return event
+    const draw = drawBps(run.seed, `${event.id}:${event.dueDay}`)
+    const success = draw < event.probabilityBps
+    nextMetrics = addMetricDelta(nextMetrics, success ? event.successMetrics : event.failureMetrics)
+    nextLedger.push({
+      id: `${event.id}_resolved`,
+      type: event.id.startsWith('deadline_') ? 'deadline_consequence' : 'delayed_effect',
+      day: event.dueDay,
+      title: event.title,
+      body: `${event.body} Ergebnis: ${success ? 'günstiger Verlauf' : 'ungünstiger Verlauf'}.`,
+      causeId: event.decisionId,
+      tone: success ? 'positive' : 'negative',
+    })
+    return { ...event, resolved: true, outcome: success ? ('success' as const) : ('failure' as const) }
+  })
+
+  return { scheduledEvents, metrics: nextMetrics, ledger: nextLedger }
+}
+
+function compareLedgerEvents(a: LedgerEvent, b: LedgerEvent): number {
+  if (a.day !== b.day) return a.day - b.day
+  const order = (type: LedgerEvent['type']): number => {
+    switch (type) {
+      case 'economic':
+        return 0
+      case 'information':
+        return 1
+      case 'delayed_effect':
+        return 2
+      case 'deadline_consequence':
+        return 3
+      case 'situation':
+        return 4
+      case 'decision':
+        return 5
+      case 'immediate_effect':
+        return 6
+      case 'review':
+        return 7
+      default:
+        return 9
+    }
+  }
+  const typeDelta = order(a.type) - order(b.type)
+  if (typeDelta !== 0) return typeDelta
+  return a.id.localeCompare(b.id)
 }
 
 function inferActionKind(text: string, scenario: ScenarioDefinition): Array<{ kind: ActionKind; label: string }> {
@@ -419,9 +512,22 @@ export function advanceTime(run: RunState, days: number): RunState {
   if (days <= 0) return run
   const targetDay = run.day + days
   let metrics = { ...run.metrics }
+  let world = run.world
   const revealed = resolveDueAnalyses(run, targetDay)
   const ledger = [...revealed.ledger]
-  const scheduledEvents = run.scheduledEvents.map((event) => {
+
+  for (let day = run.day + 1; day <= targetDay; day += 1) {
+    const tick = applyEconomicDay({ ...run, metrics, world, ledger }, day)
+    metrics = tick.metrics
+    world = tick.world
+    ledger.push(...tick.ledger)
+  }
+
+  const deadline = softDeadlineConsequence({ ...run, metrics, world, ledger }, targetDay)
+  metrics = addMetricDelta(metrics, deadline.metrics)
+  ledger.push(...deadline.ledger)
+
+  const scheduledEvents = [...run.scheduledEvents, ...deadline.scheduledEvents].map((event) => {
     if (event.resolved || event.dueDay > targetDay) return event
     const draw = drawBps(run.seed, `${event.id}:${event.dueDay}`)
     const success = draw < event.probabilityBps
@@ -443,10 +549,11 @@ export function advanceTime(run: RunState, days: number): RunState {
     revision: run.revision + 1,
     day: targetDay,
     metrics,
+    world,
     pendingAnalyses: revealed.pendingAnalyses,
     completedAnalyses: revealed.completedAnalyses,
     scheduledEvents,
-    ledger: ledger.sort((a, b) => a.day - b.day),
+    ledger: ledger.sort((a, b) => a.day - b.day || a.id.localeCompare(b.id)),
   })
 }
 
