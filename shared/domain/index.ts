@@ -204,6 +204,13 @@ export {
 } from './campaign-fixtures.ts'
 
 export {
+  NORDKERN_CAMPAIGN_ID,
+  buildNordkernSituations,
+  nordkernCampaignV1,
+  nordkernSituationFamilyCount,
+} from './campaigns/nordkern-36m.ts'
+
+export {
   collectAdvisorToolContext,
   runAdvisorTool,
   toolsForAdvisor,
