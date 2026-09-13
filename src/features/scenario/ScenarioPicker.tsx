@@ -1,7 +1,7 @@
 /** Scenario selection — mockup screen 2: filters + company cards with brand icons. */
 import { useMemo, useState } from 'react'
 import { listPlayableScenarios, type ScenarioId } from '../../domain'
-import { login, register } from '../../infrastructure/cloud'
+import { AuthPanel, type AuthScreen } from '../auth/AuthPanel'
 import { BrandMark } from '../../shared/BrandMark'
 import { CompanyMark, companyCoverSrc } from '../../shared/CompanyMark'
 import { Button, Tag } from '../../shared/ui'
@@ -33,6 +33,8 @@ export function ScenarioPicker({
   onStart,
   onAuthChange,
   onLogout,
+  authScreen = 'login',
+  authToken = null,
 }: {
   busy: boolean
   sessionEmail: string | null
@@ -40,33 +42,16 @@ export function ScenarioPicker({
   onStart: (scenarioId: ScenarioId, mode: RunMode) => Promise<void>
   onAuthChange: (email: string | null) => void
   onLogout: () => Promise<void>
+  authScreen?: AuthScreen
+  authToken?: string | null
 }) {
   const [filter, setFilter] = useState<Filter>('all')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [authMessage, setAuthMessage] = useState<string | null>(null)
-  const [authBusy, setAuthBusy] = useState(false)
   const [selected, setSelected] = useState<ScenarioId | null>(null)
 
   const visible = useMemo(
     () => listPlayableScenarios().filter((scenario) => filter === 'all' || filterFor(scenario.id) === filter),
     [filter],
   )
-
-  async function handleAuth(mode: 'login' | 'register') {
-    setAuthBusy(true)
-    setAuthMessage(null)
-    const result = mode === 'login'
-      ? await login(email.trim(), password)
-      : await register(email.trim(), password)
-    setAuthBusy(false)
-    if (result.error) {
-      setAuthMessage(result.error)
-      return
-    }
-    onAuthChange(email.trim().toLowerCase())
-    setAuthMessage(mode === 'login' ? 'Angemeldet.' : 'Konto angelegt und angemeldet.')
-  }
 
   return (
     <div className="scenario-screen">
@@ -150,50 +135,14 @@ export function ScenarioPicker({
         })}
       </div>
 
-      <section className="auth-card card">
-        <div>
-          <span className="eyebrow">Cloud optional</span>
-          <h2>{sessionEmail ? 'Angemeldet' : 'Runs synchronisieren & AI nutzen'}</h2>
-          <p>
-            {cloudConfigured
-              ? 'Cloud-Runs nutzen deinen Self-Host-API-Stack (Postgres + JWT), autoritative Simulation und Ollama Cloud.'
-              : 'Cloud-API ist nicht konfiguriert (VITE_API_URL). Der lokale Demo-Modus bleibt vollständig spielbar.'}
-          </p>
-        </div>
-        {sessionEmail ? (
-          <div className="auth-row auth-row--session">
-            <strong>{sessionEmail}</strong>
-            <Button variant="ghost" onClick={() => { void onLogout().then(() => onAuthChange(null)) }}>Abmelden</Button>
-          </div>
-        ) : cloudConfigured ? (
-          <div className="auth-form">
-            <div className="auth-row">
-              <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="E-Mail" aria-label="E-Mail" autoComplete="username" />
-              <input
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                type="password"
-                placeholder="Passwort (min. 8)"
-                aria-label="Passwort"
-                autoComplete="current-password"
-              />
-            </div>
-            <div className="auth-row auth-row--actions">
-              <Button disabled={authBusy || !email.trim() || password.length < 8} onClick={() => void handleAuth('login')}>
-                Anmelden
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={authBusy || !email.trim() || password.length < 8}
-                onClick={() => void handleAuth('register')}
-              >
-                Registrieren
-              </Button>
-            </div>
-          </div>
-        ) : null}
-        {authMessage ? <small>{authMessage}</small> : null}
-      </section>
+      <AuthPanel
+        sessionEmail={sessionEmail}
+        cloudConfigured={cloudConfigured}
+        initialScreen={authScreen}
+        initialToken={authToken}
+        onAuthChange={onAuthChange}
+        onLogout={onLogout}
+      />
     </div>
   )
 }

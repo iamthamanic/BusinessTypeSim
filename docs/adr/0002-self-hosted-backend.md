@@ -15,4 +15,4 @@ Ship a thin stack:
 Pure simulation domain lives under `shared/domain/` and is imported by the web app and the API. No Supabase runtime.
 
 ## Consequences
-Fewer containers and lower RAM than Supabase docker. Operator owns secrets (`JWT_SECRET`, `OLLAMA_API_KEY`). Email+password auth (no SMTP required). Capacitor apps talk to the public `/api` URL.
+Fewer containers and lower RAM than Supabase docker. Operator owns secrets (`JWT_SECRET`, `OLLAMA_API_KEY`). Email+password auth with verification/reset via provider-neutral mail adapter (console/capture in MVP; no SMTP required). Short-lived access JWT + rotating refresh sessions; Web uses HttpOnly Secure SameSite cookies, native Capacitor Preferences (upgrade to Secure Storage/Keychain). Capacitor apps talk to the public `/api` URL.

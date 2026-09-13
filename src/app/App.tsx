@@ -38,6 +38,7 @@ import {
 import { fetchDebrief, type DebriefResult } from '../infrastructure/debrief'
 import { clearLocalRun, loadLocalRun, saveLocalRun } from '../infrastructure/local-run'
 import { cloudConfigured, getSession, signOut } from '../infrastructure/cloud'
+import type { AuthScreen } from '../features/auth/AuthPanel'
 import { BrandMark } from '../shared/BrandMark'
 import { CompanyMark } from '../shared/CompanyMark'
 import { IconCompany, IconDecision, IconHome, IconLedger, IconTeam } from '../shared/icons'
@@ -47,6 +48,19 @@ type View = 'home' | 'company' | 'decision' | 'team' | 'ledger'
 type RunMode = 'local' | 'cloud'
 
 const ONBOARDING_KEY = 'bt.onboarding.seen'
+
+function authDeepLink(): { screen: AuthScreen; token: string | null } {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const verify = params.get('verify')
+    if (verify) return { screen: 'verify', token: verify }
+    const reset = params.get('reset')
+    if (reset) return { screen: 'reset-confirm', token: reset }
+  } catch {
+    // ignore
+  }
+  return { screen: 'login', token: null }
+}
 
 function randomSeed(): string {
   const bytes = crypto.getRandomValues(new Uint32Array(2))
@@ -73,6 +87,7 @@ export function App() {
   const [debrief, setDebrief] = useState<DebriefResult | null>(null)
   const [online, setOnline] = useState(() => isBrowserOnline())
   const [commitKey, setCommitKey] = useState(() => newIdempotencyKey())
+  const [authLink] = useState(() => authDeepLink())
 
   useEffect(() => {
     void getSession().then((session) => setSessionEmail(session?.email ?? null))
@@ -296,6 +311,8 @@ export function App() {
         onStart={startScenario}
         onAuthChange={setSessionEmail}
         onLogout={signOut}
+        authScreen={authLink.screen}
+        authToken={authLink.token}
       />
     )
   }
