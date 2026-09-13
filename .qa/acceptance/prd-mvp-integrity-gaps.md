@@ -59,7 +59,7 @@ Roadmap: PRD-MVP (Stufe A) — Close release-blocking integrity gaps: Hidden ana
 - Follow-ups closed: HTTP AuthZ 404 (`tests/http-authz.test.ts`), `UnknownAnalysisError` → 400, ScenarioPicker article+hit (no nested buttons), cloud-offline e2e via `bt.e2e.force-cloud-ui`
 
 ## Composition Gate
-- HEAD_SHA: WORKTREE (base 842e92fdabf138db833eaefeb5f3cef1eff5191f)
+- HEAD_SHA: 3307b8ae0503ce3fac34bfdd3fe431ad58c5aa4d
 - Verdict: CLEAR
 - Proof: `.qa/runs/composition-gate-prd-mvp-integrity-gaps.md`
 - Skip reason: n/a

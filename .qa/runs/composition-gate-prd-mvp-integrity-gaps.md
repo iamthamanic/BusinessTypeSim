@@ -1,7 +1,6 @@
 # Composition Gate — prd-mvp-integrity-gaps
 
-- HEAD_SHA: WORKTREE (base 842e92fdabf138db833eaefeb5f3cef1eff5191f; +16 tracked files / Playwright bootstrap)
-- Diff stat: +849 / −85 (tracked) + untracked advisor-tools, player-view, authz, cloud-draft, tests, e2e, playwright
+- HEAD_SHA: 3307b8ae0503ce3fac34bfdd3fe431ad58c5aa4d
 - Date: 2026-09-13
 - Verdict: CLEAR
 
@@ -15,13 +14,13 @@ UI `performAnalysis` → domain `requestAnalysis` → persist RunState (localSto
 | Case | Intended | Composed | Result |
 |------|----------|----------|--------|
 | 1 event, N actors | 1 request → 1 pending; 1 unlock; 1 commit/key | Re-request no-op; unlock once; duplicate key same revision | pass |
-| invalid / missing | Unknown analysisId / foreign run / offline cloud commit | Engine throws; SQL `owner_id` + `assertSameOwner` → 404; UI disables cloud commit offline | pass |
+| invalid / missing | Unknown analysisId / foreign run / offline cloud commit | UnknownAnalysisError→400; SQL owner_id + interpretOwnedRunLookup→404; UI disables cloud commit offline | pass |
 | 2 consumers / crash | Concurrent/retry commit same key | OCC update fails loser; retry reconciles via processed keys | pass |
 
 ## Flags
 | Tag | Severity | Hops | Why local review missed it | Fix |
 |-----|----------|------|----------------------------|-----|
-| `dead-path:` | note (fixed) | Ledger UI | Advance CTA only on Ergebnis tab; pending analyses invisible after request | Surface `next-event-card` whenever `nextDay !== null` — done |
+| — | — | — | — | — |
 
 ## Skip reason
 n/a
