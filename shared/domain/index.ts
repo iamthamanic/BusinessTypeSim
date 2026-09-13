@@ -130,6 +130,19 @@ export {
 } from './decision-quality.ts'
 
 export {
+  OUTCOME_HORIZON_DAYS,
+  DEFAULT_COMPARISON_BATCH_SIZE,
+  captureOutcomeBaseSnapshot,
+  compareOutcomes,
+  projectToHorizon,
+  runFromOutcomeSnapshot,
+  type HorizonProjection,
+  type OutcomeBaseSnapshot,
+  type OutcomeComparison,
+  type OutcomeSample,
+} from './outcomes.ts'
+
+export {
   getPlayerRunWorld,
   getPlayerScenario,
   getUnlockedAnalysis,
