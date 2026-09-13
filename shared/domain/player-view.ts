@@ -5,12 +5,18 @@
 import { getScenario, getScenarioAtVersion } from './scenarios.ts'
 import { ensureManagementAction } from './action-params.ts'
 import {
+  emptyDecisionContextSnapshot,
+  emptyDecisionQualityEvidence,
+} from './decision-quality.ts'
+import {
   ensureWorldStateV2,
   getPlayerWorldView,
 } from './world-state.ts'
 import type {
   AnalysisDefinition,
   AnalysisResult,
+  DecisionQuality,
+  DecisionRecord,
   PlayerAnalysisDefinition,
   PlayerWorldView,
   RunState,
@@ -104,13 +110,23 @@ export function normalizeRunState(
       confidence: def?.confidence ?? 'medium',
     } satisfies AnalysisResult
   })
-  const decisions = (run.decisions ?? []).map((decision) => ({
-    ...decision,
-    proposal: {
-      ...decision.proposal,
-      actions: decision.proposal.actions.map(ensureManagementAction),
-    },
-  }))
+  const decisions = (run.decisions ?? []).map((decision): DecisionRecord => {
+    const quality: DecisionQuality = {
+      ...decision.quality,
+      evidence: decision.quality.evidence ?? emptyDecisionQualityEvidence(),
+    }
+    return {
+      ...decision,
+      proposal: {
+        ...decision.proposal,
+        actions: decision.proposal.actions.map(ensureManagementAction),
+      },
+      quality,
+      contextSnapshot:
+        decision.contextSnapshot ??
+        emptyDecisionContextSnapshot(decision.day, run.deadlineDay),
+    }
+  })
 
   const withBasics = {
     ...run,

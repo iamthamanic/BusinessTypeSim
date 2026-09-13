@@ -136,6 +136,7 @@ Noch nicht festgelegt. Die Sichtbarkeit des GitHub-Repositories ersetzt keine Li
 
 ## Recent changes
 
+- **2026-09-13** — Semantic Decision Quality: structured evidence, DecisionContextSnapshot, deterministic rubrics (Closes #6)
 - **2026-09-13** — KVM2 production ops: Compose limits/health/logs, Postgres backup/restore, smoke-verify, ops runbook (`feat/kvm2-production-ops`)
 - **2026-09-13** — PRD-MVP Integrity: Pending-Analysen, Hidden Info Read-Model, Advisor-Tools, Commit-Idempotenz, Cloud-Offline-Draft, Vitest + Playwright (`feat/prd-mvp-integrity-gaps`)
 - **2026-09-13** — GitHub Actions Deploy-Pipeline für Hostinger (`docs/GITHUB_SECRETS.md`)

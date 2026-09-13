@@ -1,5 +1,5 @@
 /** Shared UI primitives aligned to the Executive Decision Room styleguide. */
-import type { ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 
 export function Button({
   children,
@@ -30,8 +30,19 @@ export function Button({
   )
 }
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`card ${className}`.trim()}>{children}</section>
+export function Card({
+  children,
+  className = '',
+  ...rest
+}: {
+  children: ReactNode
+  className?: string
+} & HTMLAttributes<HTMLElement>) {
+  return (
+    <section className={`card ${className}`.trim()} {...rest}>
+      {children}
+    </section>
+  )
 }
 
 export function Tag({

@@ -3,7 +3,7 @@
  * Mockup screens 4, 6, 7, 8.
  */
 import { useEffect, useState } from 'react'
-import { getPlayerScenario, analysisCompletesAfterDeadline, type ActionProposal, type RunState } from '../../domain'
+import { getPlayerScenario, analysisCompletesAfterDeadline, daysUntilDeadline, type ActionProposal, type RunState } from '../../domain'
 import { Button, Card, Tag } from '../../shared/ui'
 import { ProposalReviewCard } from './ProposalReviewCard'
 
@@ -79,7 +79,7 @@ export function DecisionView({
   onOpenTeam: () => void
 }) {
   const scenario = getPlayerScenario(run.scenarioId, run.scenarioVersion)
-  const daysLeft = Math.max(0, run.deadlineDay - run.day)
+  const daysLeft = daysUntilDeadline(run)
 
   if (phase === 'simulating') return <SimulationScreen busy={busy} />
 
@@ -117,10 +117,11 @@ export function DecisionView({
                   <Tag tone="positive">Fertig</Tag>
                 ) : pending ? (
                   <Tag tone="warning">Pending</Tag>
-                ) : afterDeadline ? (
-                  <Tag tone="warning">Nach Frist</Tag>
                 ) : (
-                  <Button variant="secondary" disabled={busy} onClick={() => void onAnalysis(analysis.id)}>Anfordern</Button>
+                  <div className="analysis-menu__actions">
+                    {afterDeadline ? <Tag tone="warning">Nach Frist</Tag> : null}
+                    <Button variant="secondary" disabled={busy || !online} onClick={() => void onAnalysis(analysis.id)}>Anfordern</Button>
+                  </div>
                 )}
               </div>
             )
@@ -199,9 +200,17 @@ export function DecisionView({
 
   return (
     <div className="screen-stack">
-      <section className="priority-banner">
-        <Tag tone={daysLeft === 0 ? 'negative' : 'warning'}>{daysLeft === 0 ? 'Frist erreicht' : 'Hohe Priorität'}</Tag>
-        <span>{daysLeft === 0 ? 'Soft Deadline — Folgen bei Weiterlaufen ohne Entscheidung' : `${daysLeft} Tage verbleibend`}</span>
+      <section className={`priority-banner${daysLeft <= 0 ? ' priority-banner--overdue' : ''}`} data-testid="deadline-banner">
+        <Tag tone={daysLeft <= 0 ? 'negative' : 'warning'}>
+          {daysLeft < 0 ? 'Frist überschritten' : daysLeft === 0 ? 'Frist erreicht' : 'Hohe Priorität'}
+        </Tag>
+        <div className="deadline" aria-live="polite">
+          <span>{Math.max(0, daysLeft)}</span>
+          <div>
+            <strong>{daysLeft < 0 ? 'Tage überfällig' : 'Tage verbleibend'}</strong>
+            <small>{daysLeft < 0 ? 'Soft Deadline — die Welt läuft weiter mit Konsequenzen' : `Entscheidung bis Simulations-Tag ${run.deadlineDay}`}</small>
+          </div>
+        </div>
       </section>
       <div className="screen-heading">
         <span className="eyebrow">Decision Room</span>

@@ -12,6 +12,7 @@ export function LedgerView({
   latestDecision,
   debrief,
   busy,
+  online = true,
   onAdvance,
   onDebrief,
 }: {
@@ -19,6 +20,7 @@ export function LedgerView({
   latestDecision: DecisionRecord | null
   debrief: DebriefResult | null
   busy: boolean
+  online?: boolean
   onAdvance: () => Promise<void>
   onDebrief: (decision: DecisionRecord) => Promise<void>
 }) {
@@ -26,6 +28,7 @@ export function LedgerView({
   const nextDay = getNextPendingEventDay(run)
   const baseline = latestDecision?.afterImmediate ?? run.metrics
   const unexpected = run.ledger.find((event) => event.type === 'delayed_effect' && event.tone !== 'positive')
+  const deadlineConsequences = run.ledger.filter((event) => event.type === 'deadline_consequence' || event.id === 'deadline_missed')
 
   const deltas = useMemo(() => {
     if (!latestDecision) return []
@@ -91,6 +94,19 @@ export function LedgerView({
         </>
       ) : null}
 
+      {deadlineConsequences.length > 0 ? (
+        <Card className="deadline-consequence-card" data-testid="deadline-consequences">
+          <Tag tone="negative">Deadline-Folgen</Tag>
+          {deadlineConsequences.map((event) => (
+            <div key={event.id} data-ledger-type={event.type} className="deadline-consequence-card__item">
+              <small>Tag {event.day}</small>
+              <h3>{event.title}</h3>
+              <p>{event.body}</p>
+            </div>
+          ))}
+        </Card>
+      ) : null}
+
       {nextDay !== null ? (
         <Card className="next-event-card">
           <div>
@@ -106,7 +122,7 @@ export function LedgerView({
                 : 'Vorspulen löst fällige Ereignisse mit demselben Run-Seed reproduzierbar auf.'}
             </p>
           </div>
-          <Button disabled={busy} onClick={() => void onAdvance()}>Bis Tag {nextDay} vorspulen</Button>
+          <Button disabled={busy || !online} onClick={() => void onAdvance()}>Bis Tag {nextDay} vorspulen</Button>
         </Card>
       ) : null}
 
@@ -115,7 +131,7 @@ export function LedgerView({
           <SectionTitle title="Ledger" meta={`${run.ledger.length} Ereignisse`} />
           <div className="ledger">
             {run.ledger.slice().reverse().map((event) => (
-              <div className={`ledger-item ledger-item--${event.tone}`} key={event.id}>
+              <div className={`ledger-item ledger-item--${event.tone}${event.type === 'deadline_consequence' || event.id === 'deadline_missed' ? ' ledger-item--deadline' : ''}${event.type === 'economic' ? ' ledger-item--economic' : ''}`} key={event.id}>
                 <span className="ledger-dot" />
                 <div>
                   <small>Tag {event.day} · {event.type.replaceAll('_', ' ')}</small>
@@ -160,34 +176,80 @@ function DecisionQualityCard({ decision, onDetails }: { decision: DecisionRecord
   const entries = useMemo(
     () =>
       [
-        ['Framing', decision.quality.framing],
-        ['Information', decision.quality.information],
-        ['Alternativen', decision.quality.alternatives],
-        ['Ziele', decision.quality.objectives],
-        ['Reasoning', decision.quality.reasoning],
-        ['Umsetzung', decision.quality.execution],
+        {
+          label: 'Framing',
+          value: decision.quality.framing,
+          signals: decision.quality.evidence.framingSignals,
+        },
+        {
+          label: 'Information',
+          value: decision.quality.information,
+          signals: decision.quality.evidence.informationSignals,
+        },
+        {
+          label: 'Alternativen',
+          value: decision.quality.alternatives,
+          signals: decision.quality.evidence.alternativeSignals,
+        },
+        {
+          label: 'Ziele',
+          value: decision.quality.objectives,
+          signals: decision.quality.evidence.objectiveSignals,
+        },
+        {
+          label: 'Reasoning',
+          value: decision.quality.reasoning,
+          signals: decision.quality.evidence.reasoningSignals,
+        },
+        {
+          label: 'Umsetzung',
+          value: decision.quality.execution,
+          signals: decision.quality.evidence.executionSignals,
+        },
       ] as const,
     [decision],
   )
 
   return (
-    <Card className="quality-card">
+    <Card className="quality-card" data-testid="decision-quality-card">
       <div className="quality-hero">
         <QualityGauge value={decision.quality.total} />
         <div>
           <Tag tone="accent">Decision Quality</Tag>
-          <h2>Auswertung</h2>
-          <p>Wie gut war der Prozess mit dem damaligen Informationsstand?</p>
+          <h2>Prozessqualität</h2>
+          <p>
+            Bewertung zum Commit (Tag {decision.contextSnapshot.day}) — getrennt vom späteren Outcome.
+            {decision.quality.evidence.keywordStuffingPenalty > 0
+              ? ' Keyword-Stuffing ohne Struktur wurde abgestraft.'
+              : ''}
+          </p>
         </div>
       </div>
-      <div className="quality-grid">
-        {entries.map(([label, value]) => (
-          <div key={label}>
-            <div><span>{label}</span><strong>{value}</strong></div>
-            <ProgressBar value={value} />
+      <div className="quality-grid" data-testid="decision-quality-dimensions">
+        {entries.map((entry) => (
+          <div
+            key={entry.label}
+            className="quality-dimension"
+            data-testid={`dq-dimension-${entry.label.toLowerCase()}`}
+          >
+            <div>
+              <span>{entry.label}</span>
+              <strong>{entry.value}</strong>
+            </div>
+            <ProgressBar value={entry.value} />
+            <ul className="quality-evidence" aria-label={`${entry.label} Evidence`}>
+              {entry.signals.length > 0 ? (
+                entry.signals.slice(0, 3).map((signal) => <li key={signal}>{signal}</li>)
+              ) : (
+                <li className="quality-evidence__empty">Keine strukturierte Evidence</li>
+              )}
+            </ul>
           </div>
         ))}
       </div>
+      <p className="quality-outcome-note" data-testid="dq-outcome-separation">
+        Outcome und Real-World-Debrief bleiben unter „Ergebnis“ — sie ändern diese Note nicht.
+      </p>
       <Button block variant="secondary" onClick={onDetails}>Details ansehen</Button>
     </Card>
   )

@@ -14,7 +14,9 @@ export type {
   CompetitorEntity,
   ContractEntity,
   CustomerEntity,
+  DecisionContextSnapshot,
   DecisionQuality,
+  DecisionQualityEvidence,
   DecisionRecord,
   DepartmentEntity,
   EntityLifecycle,
@@ -94,8 +96,14 @@ export {
   softDeadlineConsequence,
   analysisCompletesAfterDeadline,
   dailyCashDeltaFromEbitda,
+  dailyPayrollBurnCents,
+  dailyRevenueRecognitionCents,
+  daysUntilDeadline,
   hasDeadlineConsequence,
-} from './economic-time.ts'
+  DAILY_PAYROLL_CENTS_PER_HEAD,
+  DEADLINE_MISSED_LEDGER_ID,
+  ECONOMIC_TICK_SCHEMA_VERSION,
+} from './economic-tick.ts'
 
 export {
   ConstraintViolationError,
@@ -109,6 +117,17 @@ export {
   type ConstraintIssue,
   type ConstraintSeverity,
 } from './constraints.ts'
+
+export {
+  decisionContextSnapshotSchema,
+  decisionQualityEvidenceSchema,
+  emptyDecisionContextSnapshot,
+  emptyDecisionQualityEvidence,
+  extractDecisionEvidence,
+  parseDecisionQualityEvidence,
+  scoreDecisionFromEvidence,
+  scoreDecisionSemantic,
+} from './decision-quality.ts'
 
 export {
   getPlayerRunWorld,

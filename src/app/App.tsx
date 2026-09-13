@@ -389,6 +389,7 @@ export function App() {
             latestDecision={latestDecision}
             debrief={debrief}
             busy={busy}
+            online={online}
             onAdvance={advanceToNextEvent}
             onDebrief={loadDebrief}
           />
