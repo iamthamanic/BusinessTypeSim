@@ -22,7 +22,8 @@
 | `POSTGRES_DB` | `businesstype` | DB name |
 | `VITE_API_URL` | `/api` | Use full URL only if Capacitor/web is not same-origin, e.g. `https://game.example.com/api` |
 | `WEB_PORT` | `8088` | Host port for nginx (keep off n8n `5678`) |
-| `CORS_ORIGIN` | `*` | Tighten later to your domain |
+| `PUBLIC_HOST` | `businesstypesim.raccoova.com` | Traefik `Host()` rule for HTTPS |
+| `CORS_ORIGIN` | `https://businesstypesim.raccoova.com` | Tighten to the public HTTPS origin |
 | `TAVILY_API_KEY` | empty | Real-world debrief; omit if unused |
 | `LLM_BASE_URL` | `https://ollama.com/v1` | |
 | `LLM_MODEL` | `gpt-oss:120b` | |

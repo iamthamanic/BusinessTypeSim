@@ -69,7 +69,9 @@ export function HomeView({
         <SectionTitle title="Letzte Entwicklung" meta={`Tag ${latest?.day ?? run.day}`} />
         <h3>{latest?.title ?? 'Run gestartet'}</h3>
         <p>{latest?.body ?? scenario.headline}</p>
-        <Button onClick={onGoDecision}>Decision Room öffnen</Button>
+        <div className="button-row">
+          <Button onClick={onGoDecision}>Decision Room öffnen</Button>
+        </div>
       </Card>
     </div>
   )

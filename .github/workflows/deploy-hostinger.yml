@@ -61,6 +61,7 @@ jobs:
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           WEB_PORT: ${{ secrets.WEB_PORT }}
+          PUBLIC_HOST: ${{ secrets.PUBLIC_HOST }}
           CORS_ORIGIN: ${{ secrets.CORS_ORIGIN }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
@@ -85,7 +86,8 @@ jobs:
           export POSTGRES_DB="${POSTGRES_DB:-businesstype}"
           export VITE_API_URL="${VITE_API_URL:-/api}"
           export WEB_PORT="${WEB_PORT:-8088}"
-          export CORS_ORIGIN="${CORS_ORIGIN:-*}"
+          export PUBLIC_HOST="${PUBLIC_HOST:-businesstypesim.raccoova.com}"
+          export CORS_ORIGIN="${CORS_ORIGIN:-https://businesstypesim.raccoova.com}"
           export LLM_BASE_URL="${LLM_BASE_URL:-https://ollama.com/v1}"
           export LLM_MODEL="${LLM_MODEL:-gpt-oss:120b}"
           export LLM_FALLBACK_MODEL="${LLM_FALLBACK_MODEL:-llama3.1:8b}"
@@ -98,6 +100,7 @@ jobs:
           {
             echo "WEB_PORT=${WEB_PORT}"
             echo "VITE_API_URL=${VITE_API_URL}"
+            echo "PUBLIC_HOST=${PUBLIC_HOST}"
             echo "POSTGRES_USER=${POSTGRES_USER}"
             echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
             echo "POSTGRES_DB=${POSTGRES_DB}"

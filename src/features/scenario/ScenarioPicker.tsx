@@ -1,8 +1,9 @@
-/** Scenario selection — mockup screen 2: filters + company cards with hex marks. */
+/** Scenario selection — mockup screen 2: filters + company cards with brand icons. */
 import { useMemo, useState } from 'react'
 import { scenarios, type ScenarioId } from '../../domain'
 import { login, register } from '../../infrastructure/cloud'
 import { BrandMark } from '../../shared/BrandMark'
+import { CompanyMark, companyCoverSrc } from '../../shared/CompanyMark'
 import { Button, Tag } from '../../shared/ui'
 
 type RunMode = 'local' | 'cloud'
@@ -23,31 +24,6 @@ function filterFor(scenarioId: ScenarioId): Filter {
   if (scenarioId === 'heliora-clinic') return 'health'
   if (scenarioId === 'urbanfit-retail') return 'retail'
   return 'services'
-}
-
-function HexMark({
-  letter,
-  tone,
-}: {
-  letter: string
-  tone: 'blue' | 'green' | 'teal' | 'amber' | 'rose' | 'violet' | 'slate'
-}) {
-  return (
-    <svg className={`hex-mark hex-mark--${tone}`} width="48" height="52" viewBox="0 0 48 52" aria-hidden="true">
-      <path d="M24 2 L44 13.5 V38.5 L24 50 L4 38.5 V13.5 Z" />
-      <text x="24" y="31" textAnchor="middle" fontSize="16" fontWeight="800">{letter}</text>
-    </svg>
-  )
-}
-
-function markFor(id: ScenarioId) {
-  if (id === 'nexora-saas') return <HexMark letter="N" tone="blue" />
-  if (id === 'nordkern-foods') return <HexMark letter="N" tone="green" />
-  if (id === 'klarwerk-services') return <HexMark letter="K" tone="teal" />
-  if (id === 'heliora-clinic') return <HexMark letter="H" tone="rose" />
-  if (id === 'marktwerk-marketplace') return <HexMark letter="M" tone="violet" />
-  if (id === 'stromfeld-energy') return <HexMark letter="S" tone="amber" />
-  return <HexMark letter="U" tone="slate" />
 }
 
 export function ScenarioPicker({
@@ -126,28 +102,36 @@ export function ScenarioPicker({
               className={`scenario-pick${isSelected ? ' scenario-pick--selected' : ''}`}
               onClick={() => setSelected(scenario.id)}
             >
-              <div className="scenario-pick__row">
-                {markFor(scenario.id)}
-                <div className="scenario-pick__body">
-                  <div className="scenario-pick__top">
-                    <strong>{scenario.companyName}</strong>
-                    <Tag tone="accent">{scenario.stage}</Tag>
+              <span
+                className="scenario-pick__cover"
+                style={{ backgroundImage: `url(${companyCoverSrc(scenario.id)})` }}
+                aria-hidden="true"
+              />
+              <span className="scenario-pick__scrim" aria-hidden="true" />
+              <div className="scenario-pick__content">
+                <div className="scenario-pick__row">
+                  <CompanyMark id={scenario.id} />
+                  <div className="scenario-pick__body">
+                    <div className="scenario-pick__top">
+                      <strong>{scenario.companyName}</strong>
+                      <Tag tone="accent">{scenario.stage}</Tag>
+                    </div>
+                    <span className="scenario-pick__industry">{scenario.industry}</span>
+                    <p>{scenario.headline}</p>
+                    <small>{scenario.scaleLabel}</small>
                   </div>
-                  <span className="scenario-pick__industry">{scenario.industry}</span>
-                  <p>{scenario.headline}</p>
-                  <small>{scenario.scaleLabel}</small>
                 </div>
+                {isSelected ? (
+                  <div className="scenario-pick__actions" onClick={(event) => event.stopPropagation()}>
+                    <Button disabled={busy} onClick={() => void onStart(scenario.id, 'local')}>Demo starten</Button>
+                    {sessionEmail ? (
+                      <Button variant="secondary" disabled={busy} onClick={() => void onStart(scenario.id, 'cloud')}>
+                        Cloud-Run
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
-              {isSelected ? (
-                <div className="scenario-pick__actions" onClick={(event) => event.stopPropagation()}>
-                  <Button disabled={busy} onClick={() => void onStart(scenario.id, 'local')}>Demo starten</Button>
-                  {sessionEmail ? (
-                    <Button variant="secondary" disabled={busy} onClick={() => void onStart(scenario.id, 'cloud')}>
-                      Cloud-Run
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
             </button>
           )
         })}
@@ -164,7 +148,7 @@ export function ScenarioPicker({
           </p>
         </div>
         {sessionEmail ? (
-          <div className="auth-row">
+          <div className="auth-row auth-row--session">
             <strong>{sessionEmail}</strong>
             <Button variant="ghost" onClick={() => { void onLogout().then(() => onAuthChange(null)) }}>Abmelden</Button>
           </div>
@@ -181,7 +165,7 @@ export function ScenarioPicker({
                 autoComplete="current-password"
               />
             </div>
-            <div className="auth-row">
+            <div className="auth-row auth-row--actions">
               <Button disabled={authBusy || !email.trim() || password.length < 8} onClick={() => void handleAuth('login')}>
                 Anmelden
               </Button>

@@ -361,7 +361,7 @@ export const scenarios: ScenarioDefinition[] = [
   {
     id: 'heliora-clinic',
     version: 1,
-    companyName: 'Heliora Klinikgruppe',
+    companyName: 'Askolep Klinikgruppe',
     industry: 'Gesundheitswesen',
     stage: 'Mittelstand',
     scaleLabel: '48 Mio. € Umsatz · 410 Mitarbeitende',
@@ -703,7 +703,7 @@ export const scenarios: ScenarioDefinition[] = [
   {
     id: 'urbanfit-retail',
     version: 1,
-    companyName: 'UrbanFit',
+    companyName: 'Urbanatics',
     industry: 'Retail / DTC',
     stage: 'Growth',
     scaleLabel: '28 Mio. € Umsatz · 140 Mitarbeitende',

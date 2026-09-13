@@ -136,9 +136,11 @@ export function LedgerView({
               </div>
             </>
           ) : (
-            <Button variant="secondary" disabled={busy} onClick={() => void onDebrief(latestDecision)}>
-              Vergleichbare reale Fälle recherchieren
-            </Button>
+            <div className="button-row">
+              <Button variant="secondary" disabled={busy} onClick={() => void onDebrief(latestDecision)}>
+                Vergleichbare reale Fälle recherchieren
+              </Button>
+            </div>
           )}
         </Card>
       ) : null}

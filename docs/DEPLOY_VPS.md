@@ -65,12 +65,23 @@ VITE_API_URL=/api npm run dev   # Vite proxies /api -> :3000
 
 ## TLS
 
-Put Caddy/Traefik/nginx on the host in front of `:8088`. Do not publish Postgres.
+On this Hostinger box **Traefik already terminates HTTPS** (ports 80/443, Let's Encrypt TLS-ALPN). The `web` service carries Traefik labels for:
 
-## GitHub Actions deploy
+`https://businesstypesim.raccoova.com` → container port 80 (same stack as `/api` via nginx).
 
-CI writes `deploy/.env` from GitHub Secrets and runs `docker compose up` on the VPS.
+Set `PUBLIC_HOST` in `deploy/.env` if the hostname changes. Direct IP access remains on `:8088`. Do not publish Postgres.
+
+## Automatic deploy (recommended)
+
+Every **push to `main`** runs `.github/workflows/deploy-hostinger.yml`:
+
+1. `npm run checks` (+ server typecheck)
+2. SSH to the VPS, `git checkout` the pushed SHA
+3. rewrite `deploy/.env` from GitHub Secrets
+4. `docker compose up -d --build` (new logos/UI are in the web image)
+
+**Local-only edits are invisible on the live site until they are committed and pushed.**
+
+Manual run: GitHub → Actions → **Deploy Hostinger** → Run workflow.
 
 Full secret name list: [`docs/GITHUB_SECRETS.md`](GITHUB_SECRETS.md)
-
-Workflow: `.github/workflows/deploy-hostinger.yml` (push to `main` or manual).

@@ -33,6 +33,7 @@ import { fetchDebrief, type DebriefResult } from '../infrastructure/debrief'
 import { clearLocalRun, loadLocalRun, saveLocalRun } from '../infrastructure/local-run'
 import { cloudConfigured, getSession, signOut } from '../infrastructure/cloud'
 import { BrandMark } from '../shared/BrandMark'
+import { CompanyMark } from '../shared/CompanyMark'
 import { IconCompany, IconDecision, IconHome, IconLedger, IconTeam } from '../shared/icons'
 import { Button, Card, Tag } from '../shared/ui'
 
@@ -232,7 +233,7 @@ export function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar__brand">
-          <BrandMark size={36} />
+          {scenario ? <CompanyMark id={scenario.id} size={40} /> : <BrandMark size={36} />}
           <div>
             <span className="eyebrow">{scenario.industry} · Tag {run.day}</span>
             <strong>{scenario.companyName}</strong>
