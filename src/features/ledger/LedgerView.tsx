@@ -2,7 +2,14 @@
  * Auswertung + Ergebnis — mockup screens 9 + 10 (Decision Quality + 12 Monate später).
  */
 import { useMemo, useState } from 'react'
-import { getNextPendingEventDay, type DecisionRecord, type RunState } from '../../domain'
+import {
+  compareOutcomes,
+  getNextPendingEventDay,
+  OUTCOME_HORIZON_DAYS,
+  type DecisionRecord,
+  type OutcomeComparison,
+  type RunState,
+} from '../../domain'
 import type { DebriefResult } from '../../infrastructure/debrief'
 import { formatDeltaPercent, formatMoney } from '../../shared/format'
 import { Button, Card, ProgressBar, QualityGauge, SectionTitle, Tag } from '../../shared/ui'
@@ -30,7 +37,7 @@ export function LedgerView({
   const unexpected = run.ledger.find((event) => event.type === 'delayed_effect' && event.tone !== 'positive')
   const deadlineConsequences = run.ledger.filter((event) => event.type === 'deadline_consequence' || event.id === 'deadline_missed')
 
-  const deltas = useMemo(() => {
+  const immediateDeltas = useMemo(() => {
     if (!latestDecision) return []
     const before = latestDecision.before
     const after = latestDecision.afterImmediate
@@ -42,6 +49,17 @@ export function LedgerView({
       { label: 'Marktposition', value: formatDeltaPercent((after.marketPositionBps - before.marketPositionBps) / 10_000), tone: after.marketPositionBps >= before.marketPositionBps ? 'positive' : 'negative' as const },
     ]
   }, [latestDecision])
+
+  const outcomeComparison = useMemo((): OutcomeComparison | null => {
+    if (!latestDecision?.outcomeBaseSnapshot) return null
+    return compareOutcomes({
+      liveRun: run,
+      baseSnapshot: latestDecision.outcomeBaseSnapshot,
+      decisionDay: latestDecision.day,
+      batchSize: 11,
+      horizonDays: OUTCOME_HORIZON_DAYS,
+    })
+  }, [latestDecision, run])
 
   return (
     <div className="screen-stack">
@@ -67,11 +85,11 @@ export function LedgerView({
 
       {pane === 'result' ? (
         <>
-          <Card className="result-card">
-            <SectionTitle title="12 Monate später" meta="Sofortwirkung + Vorspulen" />
+          <Card className="result-card" data-testid="immediate-effects-card">
+            <SectionTitle title="Sofortwirkung" meta="unmittelbar nach Commit" />
             {latestDecision ? (
               <div className="delta-list">
-                {deltas.map((item) => (
+                {immediateDeltas.map((item) => (
                   <div key={item.label} className={`delta-row delta-row--${item.tone}`}>
                     <span>{item.label}</span>
                     <strong>{item.value}</strong>
@@ -83,6 +101,40 @@ export function LedgerView({
             )}
             <p className="muted">Stand jetzt: Cash {formatMoney(baseline.cashCents)} · ARR {formatMoney(baseline.revenueAnnualCents)}</p>
           </Card>
+
+          {outcomeComparison ? (
+            <Card className="result-card" data-testid="long-term-outcome-card">
+              <SectionTitle
+                title="12 Monate später"
+                meta={
+                  outcomeComparison.actual.endedEarly
+                    ? `Run endete früher (Tag ${outcomeComparison.actual.day})`
+                    : `+${OUTCOME_HORIZON_DAYS} Sim-Tage`
+                }
+              />
+              <div className="outcome-summary" data-testid="outcome-summary-rows">
+                <div className="outcome-summary__row">
+                  <span>Actual Cash</span>
+                  <strong>{formatMoney(outcomeComparison.actual.metrics.cashCents)}</strong>
+                </div>
+                <div className="outcome-summary__row">
+                  <span>Median Cash (Vergleich)</span>
+                  <strong>{formatMoney(outcomeComparison.median.cashCents)}</strong>
+                </div>
+                <div className="outcome-summary__row">
+                  <span>Expected Cash</span>
+                  <strong>{formatMoney(outcomeComparison.expected.cashCents)}</strong>
+                </div>
+                <div className="outcome-summary__row">
+                  <span>Actual-Perzentil (Cash)</span>
+                  <strong>{outcomeComparison.actualCashPercentile}.</strong>
+                </div>
+              </div>
+              <p className="quality-outcome-note" data-testid="outcome-dq-separation">
+                Diese Outcome-Zahlen ändern die Decision Quality nicht — Auswertung bleibt unter „Auswertung“.
+              </p>
+            </Card>
+          ) : null}
 
           {unexpected ? (
             <Card className="unexpected-card">

@@ -6,6 +6,7 @@ import {
 import { ConstraintViolationError, evaluateConstraints, hasConstraintBlockers } from './constraints.ts'
 import { scoreDecisionSemantic } from './decision-quality.ts'
 import { applyEconomicDay, softDeadlineConsequence } from './economic-tick.ts'
+import { captureOutcomeBaseSnapshot } from './outcomes.ts'
 import { getScenario, getScenarioAtVersion } from './scenarios.ts'
 import type {
   ActionKind,
@@ -459,7 +460,7 @@ export function commitDecision(
     ? [...run.processedIdempotencyKeys, idempotencyKey]
     : run.processedIdempotencyKeys
 
-  return withFailureStatus({
+  const next = withFailureStatus({
     ...run,
     revision: run.revision + 1,
     day,
@@ -469,6 +470,16 @@ export function commitDecision(
     ledger,
     processedIdempotencyKeys,
   })
+
+  const withSnapshot: RunState = {
+    ...next,
+    decisions: next.decisions.map((item, index) =>
+      index === next.decisions.length - 1
+        ? { ...item, outcomeBaseSnapshot: captureOutcomeBaseSnapshot(next) }
+        : item,
+    ),
+  }
+  return withSnapshot
 }
 
 export function advanceTime(run: RunState, days: number): RunState {

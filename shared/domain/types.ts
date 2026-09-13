@@ -426,6 +426,31 @@ export interface DecisionRecord {
   quality: DecisionQuality
   /** Knowledge + constraints frozen at commit; later unlocks must not rewrite DQ. */
   contextSnapshot: DecisionContextSnapshot
+  /**
+   * Post-commit world snapshot for long-term outcome / counterfactual batches.
+   * Shape matches `OutcomeBaseSnapshot` in outcomes.ts (kept structural to avoid cycles).
+   */
+  outcomeBaseSnapshot?: {
+    schemaVersion: 1 | 2
+    runId: string
+    scenarioId: ScenarioId
+    scenarioVersion: number
+    seed: string
+    revision: number
+    day: number
+    deadlineDay: number
+    metrics: CompanyMetrics
+    world: WorldModules
+    playerKnowledge: KnowledgeSet
+    advisorKnowledge: KnowledgeSet
+    pendingAnalyses: PendingAnalysis[]
+    completedAnalyses: AnalysisResult[]
+    decisions: DecisionRecord[]
+    scheduledEvents: ScheduledEvent[]
+    ledger: LedgerEvent[]
+    processedIdempotencyKeys: string[]
+    status: 'active' | 'completed' | 'failed'
+  }
   before: CompanyMetrics
   afterImmediate: CompanyMetrics
 }
