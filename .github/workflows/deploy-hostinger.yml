@@ -169,7 +169,16 @@ jobs:
           cd deploy
           docker compose --env-file .env up -d --build
           # Wait for health when supported
-          docker compose --env-file .env up -d --wait 2>/dev/null || sleep 20
+          if ! docker compose --env-file .env up -d --wait 2>/dev/null; then
+            echo "::error::compose wait failed — dumping api/web logs"
+            docker compose --env-file .env ps || true
+            docker compose --env-file .env logs api --tail 120 || true
+            docker compose --env-file .env logs web --tail 40 || true
+            sleep 20
+            docker compose --env-file .env ps
+            docker compose --env-file .env logs api --tail 80 || true
+            exit 1
+          fi
           docker compose --env-file .env ps
 
           ./scripts/apply-migrations.sh
