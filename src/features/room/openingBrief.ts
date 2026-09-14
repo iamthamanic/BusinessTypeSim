@@ -1,11 +1,11 @@
 /**
  * Opening brief → Quest reveal timing for a run.
  * Location: src/features/room/openingBrief.ts
+ * Chat copy comes from LLM situation_briefing (or domain fallback) — not raw title/context dump.
  */
 import {
-  getPlayerCampaignView,
-  getPublishedCampaignForScenario,
   HOUSE_ASSISTANT_ID,
+  buildSituationBriefingFallback,
   type RunState,
 } from '../../domain'
 import type { AdvisorThread } from '../team/TeamView'
@@ -89,46 +89,80 @@ export function areQuestsRevealed(runId: string, now = Date.now()): boolean {
   return now >= at
 }
 
+/** @deprecated Prefer LLM briefing + buildSituationBriefingFallback. Kept for tests. */
 export function buildOpeningBriefText(run: RunState): string {
-  const campaign = getPublishedCampaignForScenario(run.scenarioId)
-  const view = getPlayerCampaignView(run, campaign)
-  const active = view.active
-  if (!active) {
-    return (
-      'Willkommen an Bord. Ich habe die Lage vorbereitet. '
-      + 'Sobald etwas Dringendes ansteht, brief ich dich hier — und lege es dir danach unter Quest ab.'
-    )
-  }
-  return (
-    `Kurzes Briefing zur Eröffnungslage:\n\n`
-    + `${active.title}\n`
-    + `${active.context}\n\n`
-    + 'Ich halte das erst hier im Chat. In etwa 30 Sekunden lege ich es dir unter Quest ab, '
-    + 'damit du es strukturiert angehen kannst.'
-  )
+  return buildSituationBriefingFallback(run)
 }
 
-/** Seed Adalbert thread with opening brief if the thread is still empty. */
-export function ensureOpeningBriefThread(
+/**
+ * Seed Adalbert with a pending typing message (empty text) until LLM/fallback fills it.
+ * Does not dump raw situation title/context into chat.
+ */
+export function seedPendingOpeningBrief(
   threads: AdvisorThread[],
   run: RunState,
   atIso = new Date().toISOString(),
 ): AdvisorThread[] {
   const existing = threads.find((thread) => thread.advisorId === HOUSE_ASSISTANT_ID)
-  if (existing && existing.messages.length > 0) return threads
-  const shouldAnimate = !e2eSkipOpeningDelay() && !isOpeningStreamDone(run.runId)
-  const message = {
+  if (existing && existing.messages.some((message) => message.text.trim().length > 0)) {
+    return threads
+  }
+  if (e2eSkipOpeningDelay() || isOpeningStreamDone(run.runId)) {
+    return applyOpeningBriefMessage(threads, buildSituationBriefingFallback(run), atIso, false)
+  }
+  const pending = {
     role: 'advisor' as const,
-    text: buildOpeningBriefText(run),
+    text: '',
     at: atIso,
-    animate: shouldAnimate,
+    animate: true,
   }
   if (!existing) {
-    return [...threads, { advisorId: HOUSE_ASSISTANT_ID, messages: [message] }]
+    return [...threads, { advisorId: HOUSE_ASSISTANT_ID, messages: [pending] }]
   }
   return threads.map((thread) =>
     thread.advisorId === HOUSE_ASSISTANT_ID
-      ? { ...thread, messages: [message] }
+      ? { ...thread, messages: thread.messages.length === 0 ? [pending] : thread.messages }
       : thread,
   )
+}
+
+/** Replace / set Adalbert opening message after LLM or fallback. */
+export function applyOpeningBriefMessage(
+  threads: AdvisorThread[],
+  text: string,
+  atIso = new Date().toISOString(),
+  animate = true,
+): AdvisorThread[] {
+  const message = {
+    role: 'advisor' as const,
+    text,
+    at: atIso,
+    animate: animate && !e2eSkipOpeningDelay(),
+  }
+  const existing = threads.find((thread) => thread.advisorId === HOUSE_ASSISTANT_ID)
+  if (!existing) {
+    return [...threads, { advisorId: HOUSE_ASSISTANT_ID, messages: [message] }]
+  }
+  return threads.map((thread) => {
+    if (thread.advisorId !== HOUSE_ASSISTANT_ID) return thread
+    if (thread.messages.length === 0) return { ...thread, messages: [message] }
+    // Replace first empty/pending advisor message, else first advisor message.
+    const index = thread.messages.findIndex(
+      (item) => item.role === 'advisor' && item.text.trim().length === 0,
+    )
+    const target = index >= 0 ? index : 0
+    return {
+      ...thread,
+      messages: thread.messages.map((item, i) => (i === target ? message : item)),
+    }
+  })
+}
+
+/** @deprecated Use seedPendingOpeningBrief + applyOpeningBriefMessage. */
+export function ensureOpeningBriefThread(
+  threads: AdvisorThread[],
+  run: RunState,
+  atIso = new Date().toISOString(),
+): AdvisorThread[] {
+  return seedPendingOpeningBrief(threads, run, atIso)
 }

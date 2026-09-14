@@ -5,6 +5,7 @@
 import type { ActionProposal, RunState } from '../domain'
 import {
   advisorVoiceForRole,
+  buildSituationBriefingFallback,
   getPlayerCampaignView,
   getPublishedCampaignForScenario,
   getScenarioAtVersion,
@@ -21,6 +22,7 @@ interface InterpretResponse {
 interface AdvisorResponse {
   answer?: string
   error?: string
+  source?: string
 }
 
 export async function interpretDecision(
@@ -47,6 +49,38 @@ export async function interpretDecision(
   } catch {
     return interpretDecisionLocally(run, playerText, rationale)
   }
+}
+
+/**
+ * Adalbert situation briefing via dedicated LLM task (situation_briefing).
+ * Always returns usable German text; falls back deterministically on failure.
+ */
+export async function requestSituationBriefing(
+  run: RunState,
+  useCloud: boolean,
+): Promise<{ answer: string; source: 'llm' | 'fallback' }> {
+  const fallback = buildSituationBriefingFallback(run)
+  if (!useCloud || !cloudConfigured) {
+    return { answer: fallback, source: 'fallback' }
+  }
+  try {
+    const data = await apiFetch<AdvisorResponse>('/ai', {
+      method: 'POST',
+      body: JSON.stringify({
+        mode: 'situation_briefing',
+        runId: run.runId,
+      }),
+    })
+    if (data.answer && data.answer.trim().length >= 40) {
+      return {
+        answer: data.answer.trim(),
+        source: data.source === 'llm' ? 'llm' : 'fallback',
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return { answer: fallback, source: 'fallback' }
 }
 
 export async function askAdvisor(
@@ -119,15 +153,15 @@ function localAdvisorAnswer(run: RunState, advisorId: string, question: string):
   }
 
   if (/cash|liquid|runway|kontostand|burn/.test(qLower)) {
-    return `${opener} Cash steht bei ${formatMoney(m.cashCents)}. Ob das reicht, hängt vom operativen Ergebnis ab (EBITDA ${formatMoney(m.ebitdaAnnualCents)}). Für eine Empfehlung brauche ich dein Ziel — Liquidität halten oder investieren?`
+    return `${opener} Cash steht bei ${formatMoney(m.cashCents)}. Ob das reicht, hängt vom operativen Ergebnis ab (EBITDA ${formatMoney(m.ebitdaAnnualCents)} — also dem Ergebnis vor Zinsen und Steuern). Für eine Empfehlung brauche ich dein Ziel — Liquidität halten oder investieren?`
   }
 
   if (/ebitda|marge|deckungsbeitrag|profitabilität|gewinn/.test(qLower)) {
-    return `${opener} EBITDA liegt bei ${formatMoney(m.ebitdaAnnualCents)}. Das sagt etwas über die operative Tragfähigkeit, nicht über kurzfristige Liquidität (Cash ${formatMoney(m.cashCents)}).`
+    return `${opener} EBITDA liegt bei ${formatMoney(m.ebitdaAnnualCents)} (operatives Ergebnis vor Zinsen und Steuern). Das sagt etwas über die Tragfähigkeit, nicht über kurzfristige Liquidität (Cash ${formatMoney(m.cashCents)}).`
   }
 
   if (/umsatz|arr|revenue|erlös/.test(qLower)) {
-    return `${opener} Umsatz/ARR liegt bei ${formatMoney(m.revenueAnnualCents)}. Kundenkonzentration: ${formatPercent(m.customerConcentrationBps)}.`
+    return `${opener} Umsatz bzw. ARR (jährlich wiederkehrender Umsatz) liegt bei ${formatMoney(m.revenueAnnualCents)}. Kundenkonzentration: ${formatPercent(m.customerConcentrationBps)}.`
   }
 
   if (/headcount|mitarbeit|personal|teamgröße|hc\b/.test(qLower)) {
@@ -140,9 +174,9 @@ function localAdvisorAnswer(run: RunState, advisorId: string, question: string):
 
   if (/lage|situation|campaign|was steht an|priorität/.test(qLower)) {
     if (campaignView.active) {
-      return `${opener} Aktive Lage: „${campaignView.active.title}“. ${campaignView.active.context}`
+      return buildSituationBriefingFallback(run)
     }
-    return `${opener} Gerade ist keine Campaign-Situation aktiv. Du kannst Zeit voranschreiten oder auf die nächste Lage warten.`
+    return `${opener} Gerade ist keine dringende Unternehmenssituation aktiv. Du kannst Zeit voranschreiten oder auf die nächste Entwicklung warten.`
   }
 
   if (/analyse|bericht|studie|untersuchung/.test(qLower)) {

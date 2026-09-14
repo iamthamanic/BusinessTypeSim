@@ -1,4 +1,4 @@
-/** AI orchestrator — interpret decisions + advisor answers via Ollama Cloud. */
+/** AI orchestrator — interpret decisions, advisor answers, situation briefings via Ollama Cloud. */
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { requireAuth, type AppVariables } from '../auth.ts'
@@ -8,12 +8,17 @@ import { callChatModel } from '../llm.ts'
 import { interpretOwnedRunLookup } from '../owned-run.ts'
 import { claimAiRequest } from '../rate-limit.ts'
 import {
+  SITUATION_BRIEFING_SYSTEM_PROMPT,
   advisorVoiceForRole,
+  buildSituationBriefingFallback,
+  buildSituationBriefingInput,
   collectAdvisorToolContext,
   getScenarioAtVersion,
   getPlayerWorldView,
   normalizeRunState,
   playerWorldContextSummary,
+  sanitizeSituationBriefing,
+  userPromptForSituationBriefing,
   type ActionProposal,
   type RunState,
 } from '../../../shared/domain/index.ts'
@@ -30,6 +35,10 @@ const inputSchema = z.discriminatedUnion('mode', [
     runId: z.string().min(1),
     advisorId: z.string().min(1).max(120),
     question: z.string().min(2).max(2500),
+  }),
+  z.object({
+    mode: z.literal('situation_briefing'),
+    runId: z.string().min(1),
   }),
 ])
 
@@ -79,6 +88,29 @@ aiRoutes.post('/', requireAuth, async (c) => {
     const run = normalizeRunState(owned.row.state)
     const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
     const contextData = visibleContext(run)
+
+    if (input.mode === 'situation_briefing') {
+      const briefingInput = buildSituationBriefingInput(run)
+      if (!briefingInput) {
+        return c.json({ answer: buildSituationBriefingFallback(run), source: 'fallback' })
+      }
+      try {
+        const raw = await callChatModel(
+          [
+            { role: 'system', content: SITUATION_BRIEFING_SYSTEM_PROMPT },
+            { role: 'user', content: userPromptForSituationBriefing(briefingInput) },
+          ],
+          { task: 'situation_briefing' },
+        )
+        const answer = sanitizeSituationBriefing(raw)
+        if (answer.length < 40) {
+          return c.json({ answer: buildSituationBriefingFallback(run), source: 'fallback' })
+        }
+        return c.json({ answer, source: 'llm' })
+      } catch {
+        return c.json({ answer: buildSituationBriefingFallback(run), source: 'fallback' })
+      }
+    }
 
     if (input.mode === 'advisor') {
       const advisor = scenario.advisors.find((candidate) => candidate.id === input.advisorId)

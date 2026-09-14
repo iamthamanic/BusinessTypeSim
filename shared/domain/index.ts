@@ -100,6 +100,18 @@ export {
 } from './advisor-voices.ts'
 
 export {
+  SITUATION_BRIEFING_SYSTEM_PROMPT,
+  buildSituationBriefingFallback,
+  buildSituationBriefingInput,
+  evaluateSituationBriefingQuality,
+  sanitizeSituationBriefing,
+  situationBriefingModuleIsGeneric,
+  userPromptForSituationBriefing,
+  type SituationBriefingEval,
+  type SituationBriefingInput,
+} from './situation-briefing.ts'
+
+export {
   advanceTime,
   buildAlternateProposal,
   commitDecision,

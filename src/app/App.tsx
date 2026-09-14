@@ -24,7 +24,7 @@ import { OnboardingScreen } from '../features/onboarding/OnboardingScreen'
 import { DecisionRoomView } from '../features/room/DecisionRoomView'
 import { ScenarioPicker } from '../features/scenario/ScenarioPicker'
 import { type AdvisorThread } from '../features/team/TeamView'
-import { askAdvisor, interpretDecision } from '../infrastructure/ai'
+import { askAdvisor, interpretDecision, requestSituationBriefing } from '../infrastructure/ai'
 import { clearCloudDraft, isBrowserOnline, loadCloudDraft, saveCloudDraft } from '../infrastructure/cloud-draft'
 import { resetAllScenarioProgress } from '../infrastructure/reset-scenarios'
 import {
@@ -45,12 +45,13 @@ import { scenarioIdFromSlug, scenarioSlug } from '../shared/scenarioRoutes'
 import { Button, Card, Tag } from '../shared/ui'
 import { RoomInfoSheet } from '../features/room/RoomInfoSheet'
 import {
+  applyOpeningBriefMessage,
   areQuestsRevealed,
   e2eSkipOpeningDelay,
-  ensureOpeningBriefThread,
   markOpeningStreamDone,
   readQuestRevealAt,
   scheduleQuestReveal,
+  seedPendingOpeningBrief,
 } from '../features/room/openingBrief'
 
 const NOTICE_DE: Record<string, string> = {
@@ -189,7 +190,7 @@ export function App() {
       setQuestsRevealed(true)
       return
     }
-    setThreads((current) => ensureOpeningBriefThread(current, run))
+    setThreads((current) => seedPendingOpeningBrief(current, run))
     const revealAt = readQuestRevealAt(run.runId)
     if (revealAt === null) {
       setQuestsRevealed(true)
@@ -201,6 +202,34 @@ export function App() {
     const timer = window.setTimeout(() => setQuestsRevealed(true), Math.max(0, revealAt - Date.now()))
     return () => window.clearTimeout(timer)
   }, [run?.runId])
+
+  /** Generate Adalbert situation briefing via LLM (fallback on failure). */
+  useEffect(() => {
+    if (!run) return
+    let cancelled = false
+    const runId = run.runId
+    void (async () => {
+      const { answer } = await requestSituationBriefing(run, runMode === 'cloud')
+      if (cancelled) return
+      setThreads((current) => {
+        const adalbert = current.find((thread) => thread.advisorId === HOUSE_ASSISTANT_ID)
+        const alreadyFilled = adalbert?.messages.some(
+          (message) => message.role === 'advisor' && message.text.trim().length > 40,
+        )
+        if (alreadyFilled) return current
+        return applyOpeningBriefMessage(
+          current,
+          answer,
+          new Date().toISOString(),
+          !e2eSkipOpeningDelay(),
+        )
+      })
+    })()
+    return () => {
+      cancelled = true
+      void runId
+    }
+  }, [run?.runId, runMode])
 
   const scenario = run ? getPlayerScenario(run.scenarioId, run.scenarioVersion) : null
   const latestDecision = run?.decisions.at(-1) ?? null
@@ -222,7 +251,7 @@ export function App() {
       const seed = randomSeed()
       const next = mode === 'cloud' ? await createCloudRun(scenarioId, seed) : createRun(scenarioId, seed)
       scheduleQuestReveal(next.runId)
-      setThreads(ensureOpeningBriefThread([], next))
+      setThreads(seedPendingOpeningBrief([], next))
       setQuestsRevealed(areQuestsRevealed(next.runId))
       setRunMode(mode)
       setRun(next)

@@ -16,7 +16,7 @@ describe('llm routing', () => {
     expect(env.llmFallbackModel).toBe('glm-5.3:cloud')
   })
 
-  it('routes advisor/decision/debrief to Flash by default', () => {
+  it('routes advisor/decision/debrief/situation briefing to Flash by default', () => {
     for (const task of [
       'advisor_chat',
       'company_qa',
@@ -24,6 +24,7 @@ describe('llm routing', () => {
       'dq_extraction',
       'outcome_narration',
       'real_world_debrief',
+      'situation_briefing',
     ] as const) {
       const route = resolveLlmRoute({ task })
       expect(route.model).toBe(DEFAULT_LLM_MODEL)
