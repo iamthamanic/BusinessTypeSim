@@ -1,5 +1,6 @@
 import type { ScenarioDefinition, ScenarioId, WorldModules } from './types.ts'
 import { nexoraWorldV2, nordkernWorldV2 } from './world-fixtures.ts'
+import { withHouseAssistantScenario } from './house-assistant.ts'
 
 const commonMetricDefinitions: ScenarioDefinition['metricDefinitions'] = [
   { key: 'revenueAnnualCents', label: 'Umsatz / ARR', format: 'currency' },
@@ -21,6 +22,11 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
     scaleLabel: '11,8 Mio. € ARR · 84 Mitarbeitende',
     headline: 'Großkunde oder Plattform?',
     description: 'Ein schnell wachsendes Dispatching-SaaS muss zwischen Enterprise-Anpassung, AI-Roadmap und Runway balancieren.',
+    companyPitch:
+      'Nexora macht seit 2017 Software für Logistikfirmen. '
+      + 'Damit planen die Kunden ihre Lieferfahrten: welche Fahrzeuge wohin fahren und wie Touren spontan umgeplant werden. '
+      + 'Heute: rund 11,8 Mio. € Jahresumsatz aus Abos, 84 Mitarbeitende und etwa 120 zahlende Kunden. '
+      + 'Die Kunden sind vor allem mittelgroße Speditionen und ein paar sehr große Logistikunternehmen in Deutschland, Österreich und der Schweiz.',
     decisionTitle: 'TransLog Renewal',
     decisionContext: 'TransLog steht für rund 18 % des ARR und verlängert in sieben Monaten. Ein kundenspezifisches Routing-Projekt erhöht die Renewal-Chance, bindet aber einen großen Teil des Engineering-Teams. Gleichzeitig verliert Nexora Mid-Market-Deals wegen fehlender AI-Dispatch-Funktionen.',
     deadlineDays: 14,
@@ -121,9 +127,9 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
       relevantAnalysisIds: ['saas-lost-deals', 'saas-architecture', 'saas-runway'],
     },
     advisors: [
-      { id: 'cfo', name: 'Mara Klein', role: 'CFO', stance: 'Cash und Finanzierbarkeit vor Wachstum um jeden Preis.', domains: ['finance', 'runway'] },
-      { id: 'cto', name: 'David Chen', role: 'CTO', stance: 'Wiederverwendbare Plattform statt kundenspezifischem Fork.', domains: ['technical', 'product'] },
-      { id: 'sales', name: 'Leonie Fischer', role: 'VP Sales', stance: 'TransLog halten, aber Mid-Market-Signal ernst nehmen.', domains: ['sales', 'customer'] },
+      { id: 'cfo', name: 'Carlo Cash', role: 'Finance', stance: 'Cash und Finanzierbarkeit vor Wachstum um jeden Preis.', domains: ['finance', 'runway'] },
+      { id: 'cto', name: 'Tina Tech', role: 'IT', stance: 'Wiederverwendbare Plattform statt kundenspezifischem Fork.', domains: ['technical', 'product'] },
+      { id: 'sales', name: 'Damian Deals', role: 'Sales', stance: 'TransLog halten, aber Mid-Market-Signal ernst nehmen.', domains: ['sales', 'customer'] },
     ],
   },
   {
@@ -135,6 +141,11 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
     scaleLabel: '148 Mio. € Umsatz · 620 Mitarbeitende',
     headline: 'Kapazität wächst, Marge fällt',
     description: 'Drei Werke laufen nahe am Limit, während Händlerdruck und ineffiziente Promotionen die Profitabilität erodieren.',
+    companyPitch:
+      'Nordkern Foods stellt seit 1994 Lebensmittel her — vor allem Molkereiprodukte, Premium-Linien und Marken für den Handel. '
+      + 'Das Unternehmen hat drei Werke in Norddeutschland. '
+      + 'Heute: rund 148 Mio. € Umsatz und 620 Mitarbeitende. '
+      + 'Kunden sind große Supermarkt-Ketten wie Lidl und REWE, dazu Großküchen und Produkte unter Handelsmarken.',
     decisionTitle: 'Kapazität und Kundenmix',
     decisionContext: 'Der Absatz ist in zwei Jahren um 24 % gestiegen, EBITDA aber um 11 % gefallen. Werke laufen im Mittel zu 91 %. Automatisierung könnte Stückkosten und Engpässe reduzieren; Lidl steht für 19 % Umsatz, aber nur 7,5 % DB-II-Marge.',
     deadlineDays: 21,
@@ -241,9 +252,9 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
       relevantAnalysisIds: ['food-profitability', 'food-automation', 'food-lidl'],
     },
     advisors: [
-      { id: 'cfo', name: 'Saskia Reuter', role: 'CFO', stance: 'Deckungsbeitrag pro knapper Produktionsstunde priorisieren.', domains: ['finance', 'margin'] },
-      { id: 'coo', name: 'Martin Vogt', role: 'COO', stance: 'Kapazität sichern, aber Pilotrisiko begrenzen.', domains: ['operations', 'capex'] },
-      { id: 'hr', name: 'Aylin Demir', role: 'CHRO', stance: 'Fluktuation, Umschulung und Betriebsrat früh einplanen.', domains: ['people', 'organization'] },
+      { id: 'cfo', name: 'Carlo Cash', role: 'Finance', stance: 'Deckungsbeitrag pro knapper Produktionsstunde priorisieren.', domains: ['finance', 'margin'] },
+      { id: 'coo', name: 'Otto Ops', role: 'Ops', stance: 'Kapazität sichern, aber Pilotrisiko begrenzen.', domains: ['operations', 'capex'] },
+      { id: 'hr', name: 'Harry Humans', role: 'HR', stance: 'Fluktuation, Umschulung und Betriebsrat früh einplanen.', domains: ['people', 'organization'] },
     ],
   },
   {
@@ -255,6 +266,11 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
     scaleLabel: '3,2 Mio. € Umsatz · 27 Mitarbeitende',
     headline: 'Der Gründer ist der Engpass',
     description: 'Eine profitable Beratung wächst, aber Vertrieb, Delivery und Kundenbeziehungen hängen zu stark an einer Person.',
+    companyPitch:
+      'Klarwerk Consulting ist eine kleine Unternehmensberatung. Der Gründer führt die Firma noch selbst. '
+      + 'Seit 2012 hilft das Team anderen Firmen bei Digitalisierung, Organisation und Wachstum. '
+      + 'Heute: 3,2 Mio. € Umsatz und 27 Mitarbeitende. '
+      + 'Kunden sind vor allem mittelständische Industriefirmen und Dienstleister. Ein großer Kunde macht etwa ein Viertel des Umsatzes.',
     decisionTitle: 'Vom Gründerbetrieb zur Führungsebene',
     decisionContext: 'Der Gründer verkauft 62 % des Neugeschäfts, reviewed fast jedes Projekt und entscheidet über Preise. Zwei Senior-Berater wollen mehr Verantwortung, während ein Großkunde 26 % des Umsatzes stellt.',
     deadlineDays: 30,
@@ -355,9 +371,9 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
       relevantAnalysisIds: ['services-client-profit', 'services-leadership', 'services-pricing'],
     },
     advisors: [
-      { id: 'finance', name: 'Eva Brandt', role: 'Finance Lead', stance: 'Cash Conversion und Projektmarge sichtbar machen.', domains: ['finance', 'pricing'] },
-      { id: 'delivery', name: 'Jonas Weber', role: 'Delivery Lead', stance: 'Entscheidungen und Reviews aus dem Gründerkalender lösen.', domains: ['operations', 'people'] },
-      { id: 'sales', name: 'Mila Hoffmann', role: 'Sales Lead', stance: 'Preise und Großkundenabhängigkeit aktiv steuern.', domains: ['sales', 'customer'] },
+      { id: 'finance', name: 'Carlo Cash', role: 'Finance', stance: 'Cash Conversion und Projektmarge sichtbar machen.', domains: ['finance', 'pricing'] },
+      { id: 'delivery', name: 'Otto Ops', role: 'Ops', stance: 'Entscheidungen und Reviews aus dem Gründerkalender lösen.', domains: ['operations', 'people'] },
+      { id: 'sales', name: 'Damian Deals', role: 'Sales', stance: 'Preise und Großkundenabhängigkeit aktiv steuern.', domains: ['sales', 'customer'] },
     ],
   },
   {
@@ -369,6 +385,11 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
     scaleLabel: '48 Mio. € Umsatz · 410 Mitarbeitende',
     headline: 'Wachstum oder Versorgungsqualität?',
     description: 'Eine regionale Klinikgruppe steht vor einem Übernahmeangebot und gleichzeitigem Fachkräftemangel auf der Station.',
+    companyPitch:
+      'Askolep ist eine Klinikgruppe mit mehreren Krankenhäusern in einer Region. '
+      + 'Es gibt sie seit den frühen 2000er-Jahren. Behandelt werden vor allem Menschen aus der Umgebung. '
+      + 'Heute: rund 48 Mio. € Umsatz und 410 Mitarbeitende. '
+      + 'Zwei Standorte machen den Großteil des Geschäfts. Patientinnen und Patienten kommen oft über Hausärzte und Krankenkassen.',
     decisionTitle: 'Übernahme vs. Qualitätsfokus',
     decisionContext: 'Ein Investor bietet 22 Mio. € für eine Minderheitsbeteiligung und drängt auf zwei neue Standorte. Gleichzeitig liegt die Pflegequote unter Plan, Wartezeiten steigen und ein Zulieferer für Medizintechnik erhöht Preise um 14 %.',
     deadlineDays: 21,
@@ -469,9 +490,9 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
       relevantAnalysisIds: ['clinic-staffing', 'clinic-deal', 'clinic-procurement'],
     },
     advisors: [
-      { id: 'cfo', name: 'Dr. Lena Orth', role: 'CFO', stance: 'Kapital und Kontrolle getrennt bewerten.', domains: ['finance', 'governance'] },
-      { id: 'cmo', name: 'Prof. Amir Said', role: 'Ärztlicher Direktor', stance: 'Versorgungsqualität darf nicht dem Wachstum weichen.', domains: ['quality', 'operations'] },
-      { id: 'chro', name: 'Tanja Voigt', role: 'CHRO', stance: 'Ohne Pflegepersonal ist Expansion teure Symbolpolitik.', domains: ['people', 'organization'] },
+      { id: 'cfo', name: 'Carlo Cash', role: 'Finance', stance: 'Kapital und Kontrolle getrennt bewerten.', domains: ['finance', 'governance'] },
+      { id: 'cmo', name: 'Amir Care', role: 'Care', stance: 'Versorgungsqualität darf nicht dem Wachstum weichen.', domains: ['quality', 'operations'] },
+      { id: 'chro', name: 'Harry Humans', role: 'HR', stance: 'Ohne Pflegepersonal ist Expansion teure Symbolpolitik.', domains: ['people', 'organization'] },
     ],
   },
   {
@@ -483,6 +504,11 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
     scaleLabel: '36 Mio. € GMV · 95 Mitarbeitende',
     headline: 'Take Rate oder Händlervertrauen?',
     description: 'Ein B2B-Marketplace will die Take Rate erhöhen, riskiert aber Abwanderung von Top-Händlern an einen neuen Rivalen.',
+    companyPitch:
+      'Marktwerk ist eine Online-Plattform, auf der Händler an Firmen verkaufen — keine Endkunden-Shops. '
+      + 'Gegründet 2018. Die Plattform verdient mit, wenn etwas verkauft wird, plus ein paar Extra-Services. '
+      + 'Heute: rund 36 Mio. € Warenwert pro Jahr auf der Plattform, 95 Mitarbeitende und mehrere hundert aktive Händler. '
+      + 'Die 20 größten Händler machen einen großen Teil des Volumens. Käufer sind vor allem kleinere und mittlere Firmen sowie Filialketten.',
     decisionTitle: 'Monetarisierung unter Wettbewerbsdruck',
     decisionContext: 'Finance fordert +1,2 pp Take Rate. Die Top-20-Händler erzeugen 44 % des GMV und drohen mit Parallelverkauf. Gleichzeitig verbrennt Logistics-Support Cash und NPS fällt.',
     deadlineDays: 16,
@@ -583,9 +609,9 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
       relevantAnalysisIds: ['market-churn', 'market-unit', 'market-rival'],
     },
     advisors: [
-      { id: 'cfo', name: 'Nora Klein', role: 'CFO', stance: 'Contribution vor GMV-Romantik.', domains: ['finance', 'pricing'] },
-      { id: 'coo', name: 'Ravi Menon', role: 'COO', stance: 'Support-Last ist ein Produktproblem.', domains: ['operations', 'marketplace'] },
-      { id: 'partnerships', name: 'Clara Berg', role: 'VP Partnerships', stance: 'Top-Händler brauchen Gegenwert, nicht nur Preise.', domains: ['sales', 'customer'] },
+      { id: 'cfo', name: 'Carlo Cash', role: 'CFO', stance: 'Contribution vor GMV-Romantik.', domains: ['finance', 'pricing'] },
+      { id: 'coo', name: 'Otto Ops', role: 'COO', stance: 'Support-Last ist ein Produktproblem.', domains: ['operations', 'marketplace'] },
+      { id: 'partnerships', name: 'Damian Deals', role: 'VP Partnerships', stance: 'Top-Händler brauchen Gegenwert, nicht nur Preise.', domains: ['sales', 'customer'] },
     ],
   },
   {
@@ -597,6 +623,11 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
     scaleLabel: '210 Mio. € Umsatz · 320 Mitarbeitende',
     headline: 'Netzausbau oder Margensicherung?',
     description: 'Ein regionaler Energieversorger muss zwischen teurem Netzausbau, Preisdeckel-Politik und Industriekundenbindung wählen.',
+    companyPitch:
+      'Stromfeld Energy liefert Strom und betreibt das Stromnetz in einer Region. '
+      + 'Seit über 20 Jahren versorgt das Unternehmen Haushalte und Firmen vor Ort. '
+      + 'Heute: rund 210 Mio. € Umsatz und 320 Mitarbeitende. '
+      + 'Kunden sind Privatpersonen, Handwerk und Industrie. Ein großer Industriekunde macht einen spürbaren Teil des Umsatzes.',
     decisionTitle: 'Capex unter Regulierungsdruck',
     decisionContext: 'Die Regulierungsbehörde erwartet Netzinvestitionen von 38 Mio. € in 24 Monaten. Gleichzeitig droht ein Industriekunde mit 19 % Umsatzanteil mit Abwanderung, falls Preise steigen.',
     deadlineDays: 28,
@@ -697,9 +728,9 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
       relevantAnalysisIds: ['energy-capex', 'energy-customer', 'energy-finance'],
     },
     advisors: [
-      { id: 'cfo', name: 'Henrik Pauli', role: 'CFO', stance: 'Peak-Cash und Zinslast zuerst absichern.', domains: ['finance', 'capex'] },
-      { id: 'cto-grid', name: 'Ines Marquardt', role: 'Grid CTO', stance: 'Kritische Anlagen vor Symbolprojekten.', domains: ['operations', 'risk'] },
-      { id: 'sales', name: 'Omar Farid', role: 'Key Account Lead', stance: 'Industriekundenbindung schlägt kurzfristige Preismaßnahmen.', domains: ['sales', 'customer'] },
+      { id: 'cfo', name: 'Carlo Cash', role: 'CFO', stance: 'Peak-Cash und Zinslast zuerst absichern.', domains: ['finance', 'capex'] },
+      { id: 'cto-grid', name: 'Tina Tech', role: 'Grid CTO', stance: 'Kritische Anlagen vor Symbolprojekten.', domains: ['operations', 'risk'] },
+      { id: 'sales', name: 'Damian Deals', role: 'Key Account Lead', stance: 'Industriekundenbindung schlägt kurzfristige Preismaßnahmen.', domains: ['sales', 'customer'] },
     ],
   },
   {
@@ -711,6 +742,11 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
     scaleLabel: '28 Mio. € Umsatz · 140 Mitarbeitende',
     headline: 'Filialen oder digitale Marge?',
     description: 'Eine Sportmarke mit starken Online-Umsätzen prüft teure City-Filialen gegen Profitabilität und Lagerumschlag.',
+    companyPitch:
+      'Urbanatics verkauft Sport- und Freizeitkleidung unter eigener Marke. '
+      + 'Seit 2015 vor allem online an Privatkunden in Deutschland, Österreich, der Schweiz und Europa. '
+      + 'Heute: rund 28 Mio. € Umsatz und 140 Mitarbeitende. '
+      + 'Die meisten Käufe laufen über den eigenen Online-Shop. Verkauf über andere Händler oder eigene Läden ist noch kein Hauptthema.',
     decisionTitle: 'Omnichannel-Expansion',
     decisionContext: 'Marketing will drei Flagship-Stores. Operations warnt vor Überbestand und Retourenquote von 19 %. Ein Großhändler bietet Listung, verlangt aber 28 % Marge und Exklusivfenster.',
     deadlineDays: 18,
@@ -821,9 +857,9 @@ const scenarioCatalogV1: ScenarioDefinition[] = [
       relevantAnalysisIds: ['retail-stores', 'retail-returns', 'retail-wholesale'],
     },
     advisors: [
-      { id: 'cfo', name: 'Sophie Lang', role: 'CFO', stance: 'Capex nur mit klarer Lernhypothese.', domains: ['finance', 'retail'] },
-      { id: 'coo', name: 'Ben Okonkwo', role: 'COO', stance: 'Retouren und Bestand vor Symbol-Stores.', domains: ['operations', 'cx'] },
-      { id: 'brand', name: 'Mira Schulz', role: 'Brand Lead', stance: 'Wholesale darf DTC-Preisarchitektur nicht zerstören.', domains: ['brand', 'sales'] },
+      { id: 'cfo', name: 'Carlo Cash', role: 'CFO', stance: 'Capex nur mit klarer Lernhypothese.', domains: ['finance', 'retail'] },
+      { id: 'coo', name: 'Otto Ops', role: 'COO', stance: 'Retouren und Bestand vor Symbol-Stores.', domains: ['operations', 'cx'] },
+      { id: 'brand', name: 'Mia Marketing', role: 'Brand Lead', stance: 'Wholesale darf DTC-Preisarchitektur nicht zerstören.', domains: ['brand', 'sales'] },
     ],
   },
 ]
@@ -860,9 +896,10 @@ export function getScenario(id: ScenarioId): ScenarioDefinition {
   if (matches.length === 0) {
     throw new Error(`Unknown scenario: ${id}`)
   }
-  return matches.reduce((latest, candidate) =>
-    candidate.version > latest.version ? candidate : latest,
+  const latest = matches.reduce((current, candidate) =>
+    candidate.version > current.version ? candidate : current,
   )
+  return withHouseAssistantScenario(latest)
 }
 
 /** Exact published snapshot for a run's bound scenario version. */
@@ -871,7 +908,7 @@ export function getScenarioAtVersion(id: ScenarioId, version: number): ScenarioD
   if (!scenario) {
     throw new Error(`Unknown scenario version: ${id}@${version}`)
   }
-  return scenario
+  return withHouseAssistantScenario(scenario)
 }
 
 export function listPublishedScenarioVersions(id: ScenarioId): number[] {
@@ -890,5 +927,5 @@ export function listPlayableScenarios(): ScenarioDefinition[] {
       latestById.set(scenario.id, scenario)
     }
   }
-  return [...latestById.values()]
+  return [...latestById.values()].map(withHouseAssistantScenario)
 }

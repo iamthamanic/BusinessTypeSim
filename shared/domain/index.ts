@@ -87,6 +87,19 @@ export {
 } from './scenarios.ts'
 
 export {
+  HOUSE_ASSISTANT,
+  HOUSE_ASSISTANT_ID,
+  withHouseAssistant,
+  withHouseAssistantScenario,
+} from './house-assistant.ts'
+
+export {
+  advisorVoiceForRole,
+  advisorVoiceKeyForRole,
+  type AdvisorVoice,
+} from './advisor-voices.ts'
+
+export {
   advanceTime,
   buildAlternateProposal,
   commitDecision,

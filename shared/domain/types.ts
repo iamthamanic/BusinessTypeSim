@@ -282,6 +282,11 @@ export interface ScenarioDefinition {
   scaleLabel: string
   headline: string
   description: string
+  /**
+   * Company elevator pitch for the scenario picker — firm story only,
+   * independent of the opening quest / decision situation.
+   */
+  companyPitch: string
   decisionTitle: string
   decisionContext: string
   deadlineDays: number

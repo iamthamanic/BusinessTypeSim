@@ -19,7 +19,8 @@
     "cap:assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#03080f' --iconBackgroundColorDark '#03080f' --splashBackgroundColor '#070f18' --splashBackgroundColorDark '#070f18'",
     "native:setup": "node scripts/setup-native.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "dev:android": "CAP_LIVE_RELOAD=1 cap sync android && cd android && ./gradlew installDebug && adb shell am start -n app.businesstype.sim/.MainActivity"
   },
   "dependencies": {
     "@capacitor/app": "^8.0.0",
@@ -32,6 +33,7 @@
     "jose": "^5.10.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-router-dom": "^7.18.3",
     "zod": "^4.1.0"
   },
   "devDependencies": {
@@ -42,6 +44,7 @@
     "@playwright/test": "^1.55.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^5.0.0",
     "hono": "^4.9.0",
     "ts-node": "^10.9.2",

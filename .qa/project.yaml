@@ -28,8 +28,6 @@ issueContract:
     - android
     - ios
 navigation:
-  - Home
-  - Unternehmen
-  - Entscheidung
-  - Team
+  - Raum
+  - Firma
   - Verlauf

@@ -34,3 +34,22 @@ export function commitCloudDecision(
 export function advanceCloudTime(runId: string, revision: number, days: number): Promise<RunState> {
   return callGame({ op: 'advance', runId, revision, days })
 }
+
+export type CloudRunProgress = {
+  scenarioId: ScenarioId
+  percent: number
+  status: 'active' | 'completed' | 'failed'
+}
+
+export async function listCloudRunProgress(): Promise<CloudRunProgress[]> {
+  const data = await apiFetch<{ runs?: CloudRunProgress[]; error?: string }>('/game/runs')
+  return data.runs ?? []
+}
+
+/** Wipe all cloud runs for the signed-in user. */
+export async function deleteAllCloudRuns(): Promise<{ deleted: number }> {
+  const data = await apiFetch<{ ok?: boolean; deleted?: number; error?: string }>('/game/runs', {
+    method: 'DELETE',
+  })
+  return { deleted: data.deleted ?? 0 }
+}

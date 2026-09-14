@@ -38,6 +38,21 @@ export function clearCloudDraft(runId: string): void {
   localStorage.removeItem(draftKey(runId))
 }
 
+/** Remove all offline decision drafts (prefix scan). */
+export function clearAllCloudDrafts(): void {
+  try {
+    const prefix = 'business-type:cloud-draft:v1:'
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(prefix)) keys.push(key)
+    }
+    for (const key of keys) localStorage.removeItem(key)
+  } catch {
+    // ignore
+  }
+}
+
 export function isBrowserOnline(): boolean {
   return typeof navigator === 'undefined' ? true : navigator.onLine
 }

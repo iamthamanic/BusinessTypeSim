@@ -1,5 +1,6 @@
 /**
- * Cloud API client — cookie sessions on web; Preferences on native.
+ * Cloud API client — cookie sessions on same-origin prod web; bearer tokens for
+ * localhost (Vite proxy), cross-origin web, and native.
  * Location: src/infrastructure/cloud.ts
  */
 import {
@@ -7,6 +8,7 @@ import {
   isNativePlatform,
   loadStoredSession,
   persistNativeTokens,
+  persistWebBearerTokens,
   persistWebSessionEmail,
   setMemoryAccessToken,
 } from './session-store'
@@ -15,6 +17,33 @@ function apiBase(): string {
   const configured = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
   if (configured) return configured.replace(/\/$/, '')
   return '/api'
+}
+
+function isLocalDevHost(): boolean {
+  try {
+    const host = window.location.hostname
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Prefer bearer tokens whenever cookies are unreliable:
+ * - Capacitor native
+ * - localhost / 127.0.0.1 (Vite → remote API)
+ * - absolute VITE_API_URL pointing at another origin
+ */
+export function usesBearerAuth(): boolean {
+  if (isNativePlatform()) return true
+  if (isLocalDevHost()) return true
+  try {
+    const base = apiBase()
+    if (!/^https?:\/\//i.test(base)) return false
+    return new URL(base).origin !== window.location.origin
+  } catch {
+    return false
+  }
 }
 
 /** Cloud is available when an API base URL is configured at build time. */
@@ -38,15 +67,22 @@ async function applySessionResponse(data: SessionResponse): Promise<void> {
     }
     await persistNativeTokens(data.accessToken, data.refreshToken, data.user.email)
     setMemoryAccessToken(data.accessToken)
-  } else {
-    // Web relies on Set-Cookie; optionally cache access for Authorization header.
-    if (data.accessToken) setMemoryAccessToken(data.accessToken)
-    await persistWebSessionEmail(data.user.email)
+    return
   }
+  if (usesBearerAuth()) {
+    if (!data.accessToken || !data.refreshToken) {
+      throw new Error('BEARER_TOKENS_MISSING')
+    }
+    await persistWebBearerTokens(data.accessToken, data.refreshToken, data.user.email)
+    return
+  }
+  if (data.accessToken) setMemoryAccessToken(data.accessToken)
+  await persistWebSessionEmail(data.user.email)
 }
 
 function authClientHeaders(): HeadersInit {
   if (isNativePlatform()) return { 'X-Auth-Client': 'native' }
+  if (usesBearerAuth()) return { 'X-Auth-Client': 'json' }
   return {}
 }
 
@@ -103,7 +139,7 @@ export async function apiFetch<T>(
 async function tryRefresh(): Promise<boolean> {
   try {
     const headers = new Headers(authClientHeaders())
-    if (isNativePlatform()) {
+    if (isNativePlatform() || usesBearerAuth()) {
       const stored = await loadStoredSession()
       if (stored.refreshToken) headers.set('X-Refresh-Token', stored.refreshToken)
     }

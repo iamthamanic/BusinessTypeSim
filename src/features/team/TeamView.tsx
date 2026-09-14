@@ -1,11 +1,18 @@
 /** Advisors chat — mockup screen 5. */
 import { useState } from 'react'
 import { getPlayerScenario, type RunState } from '../../domain'
+import { advisorPersona } from '../../shared/advisorPersona'
 import { Button, Card, Tag } from '../../shared/ui'
 
 export interface AdvisorThread {
   advisorId: string
-  messages: Array<{ role: 'user' | 'advisor'; text: string }>
+  messages: Array<{
+    role: 'user' | 'advisor'
+    text: string
+    at?: string
+    /** Chat-style typewriter on first display (opening brief / replies). */
+    animate?: boolean
+  }>
 }
 
 export function TeamView({
@@ -18,12 +25,15 @@ export function TeamView({
   onAsk: (advisorId: string, question: string) => Promise<void>
 }) {
   const scenario = getPlayerScenario(run.scenarioId, run.scenarioVersion)
-  const [activeId, setActiveId] = useState(scenario.advisors[0]?.id ?? '')
+  const [activeId, setActiveId] = useState(
+    scenario.advisors.find((advisor) => advisor.id === 'adalbert')?.id ?? scenario.advisors[0]?.id ?? '',
+  )
   const [question, setQuestion] = useState('')
   const active = scenario.advisors.find((advisor) => advisor.id === activeId) ?? scenario.advisors[0]
   const thread = threads.find((candidate) => candidate.advisorId === activeId)
   if (!active) return null
   const advisor = active
+  const persona = advisorPersona(advisor.role)
 
   async function send() {
     const text = question
@@ -50,16 +60,16 @@ export function TeamView({
             onClick={() => setActiveId(item.id)}
           >
             <strong>{item.role}</strong>
-            <span>{item.name}</span>
+            <span>{advisorPersona(item.role).name}</span>
           </button>
         ))}
       </div>
 
       <Card className="advisor-card">
         <div className="advisor-header">
-          <div className="avatar">{advisor.name.split(' ').map((part) => part[0]).join('')}</div>
+          <img className="avatar avatar--photo" src={persona.portraitSrc} alt="" width={48} height={48} />
           <div>
-            <h2>{advisor.name}</h2>
+            <h2>{persona.name}</h2>
             <p>{advisor.role} · {advisor.stance}</p>
           </div>
         </div>

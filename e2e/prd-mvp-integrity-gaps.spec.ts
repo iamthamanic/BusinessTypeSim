@@ -12,7 +12,8 @@ async function enterLocalNordkern(
   options?: { forceCloudUi?: boolean },
 ) {
   await page.addInitScript((forceCloudUi) => {
-    localStorage.setItem('bt.onboarding.seen', '1')
+    localStorage.setItem('bt.onboarding.seen', '1');
+    localStorage.setItem('bt.e2e.allow-local-demo', '1')
     localStorage.removeItem('business-type:active-run:v1')
     if (forceCloudUi) localStorage.setItem('bt.e2e.force-cloud-ui', '1')
     else localStorage.removeItem('bt.e2e.force-cloud-ui')
@@ -21,7 +22,7 @@ async function enterLocalNordkern(
   await expect(page.getByRole('heading', { name: 'Wähle dein Unternehmen' })).toBeVisible()
   const card = page.locator('.scenario-pick').filter({ hasText: 'Nordkern Foods' })
   await card.getByRole('button', { name: /Szenario Nordkern Foods/ }).click()
-  await card.getByRole('button', { name: 'Demo starten' }).click()
+  await card.getByRole('button', { name: 'Szenario starten' }).click()
   await expect(page.getByRole('navigation', { name: 'Hauptnavigation' })).toBeVisible({ timeout: 15_000 })
 }
 
@@ -39,7 +40,7 @@ test('analysis pending then reveal after advance', async ({ page }) => {
 
   await enterLocalNordkern(page)
 
-  await nav(page, 'Entscheidung').click()
+  await nav(page, 'Cockpit').click()
   await page.getByRole('button', { name: /Weitere Informationen anfordern/ }).click()
   await expect(page.getByRole('heading', { name: 'Analysen anfordern' })).toBeVisible()
 
@@ -49,10 +50,10 @@ test('analysis pending then reveal after advance', async ({ page }) => {
   await expect(page.getByText(/Läuft · Ergebnis an Tag/)).toBeVisible()
   await page.screenshot({ path: path.join(EVIDENCE, '01-analysis-pending.png'), fullPage: true })
 
-  await nav(page, 'Mehr').click()
+  await nav(page, 'Verlauf').click()
   await page.getByRole('button', { name: /vorspulen/i }).click()
 
-  await nav(page, 'Entscheidung').click()
+  await nav(page, 'Cockpit').click()
   await page.getByRole('button', { name: /Weitere Informationen anfordern/ }).click()
   await expect(page.getByText('Fertig').first()).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText(/40 Mio|Deckungsbeitrag|Promotion/i).first()).toBeVisible()
@@ -65,7 +66,7 @@ test('cloud UI offline disables commit and keeps draft', async ({ page, context 
   await enterLocalNordkern(page, { forceCloudUi: true })
   await expect(page.getByText('Cloud').first()).toBeVisible()
 
-  await nav(page, 'Entscheidung').click()
+  await nav(page, 'Cockpit').click()
   await page.getByRole('button', { name: /Entscheidung treffen/ }).click()
   const plan = 'Wir automatisieren Thüringen als Pilot und verhandeln Lidl auf eine Mindestmarge.'
   await page.locator('textarea').first().fill(plan)
@@ -85,7 +86,8 @@ test('cloud UI offline disables commit and keeps draft', async ({ page, context 
 
 test('scenario card has no nested buttons', async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('bt.onboarding.seen', '1')
+    localStorage.setItem('bt.onboarding.seen', '1');
+    localStorage.setItem('bt.e2e.allow-local-demo', '1')
     localStorage.removeItem('business-type:active-run:v1')
   })
   await page.goto('/')
@@ -93,5 +95,5 @@ test('scenario card has no nested buttons', async ({ page }) => {
   await card.getByRole('button', { name: /Szenario Nordkern Foods/ }).click()
   const nested = await card.locator('button button').count()
   expect(nested).toBe(0)
-  await expect(card.getByRole('button', { name: 'Demo starten' })).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Szenario starten' })).toBeVisible()
 })

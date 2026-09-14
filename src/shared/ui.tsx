@@ -1,5 +1,6 @@
 /** Shared UI primitives aligned to the Executive Decision Room styleguide. */
-import type { HTMLAttributes, ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type HTMLAttributes, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 export function Button({
   children,
@@ -127,19 +128,110 @@ export function MetricTile({
   label,
   value,
   hint,
+  tip,
   tone = 'neutral',
 }: {
   label: string
   value: string
   hint?: string
+  tip?: string
   tone?: 'neutral' | 'positive' | 'negative' | 'warning'
 }) {
   return (
     <div className={`metric-tile metric-tile--${tone}`}>
-      <span>{label}</span>
+      <span className="metric-label-row">
+        {label}
+        {tip ? <InfoTip text={tip} label={`${label} erklären`} /> : null}
+      </span>
       <strong>{value}</strong>
       {hint ? <small>{hint}</small> : null}
     </div>
+  )
+}
+
+/** Accessible tip for metric explanations — fixed portal so hub overflow cannot clip it. */
+export function InfoTip({ text, label }: { text: string; label: string }) {
+  const tipId = useId()
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const [open, setOpen] = useState(false)
+  const [place, setPlace] = useState<{ top: number; left: number; side: 'above' | 'below' } | null>(
+    null,
+  )
+
+  function measure() {
+    const button = buttonRef.current
+    if (!button) return
+    const rect = button.getBoundingClientRect()
+    const width = Math.min(260, window.innerWidth - 24)
+    const spaceBelow = window.innerHeight - rect.bottom
+    const side: 'above' | 'below' = spaceBelow < 140 && rect.top > 140 ? 'above' : 'below'
+    const left = Math.min(
+      window.innerWidth - width / 2 - 12,
+      Math.max(width / 2 + 12, rect.left + rect.width / 2),
+    )
+    const top = side === 'below' ? rect.bottom + 8 : rect.top - 8
+    setPlace({ top, left, side })
+  }
+
+  useEffect(() => {
+    if (!open) return
+    measure()
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Node | null
+      if (!target) return
+      if (buttonRef.current?.contains(target)) return
+      const bubble = document.getElementById(tipId)
+      if (bubble?.contains(target)) return
+      setOpen(false)
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    function onReposition() {
+      measure()
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('resize', onReposition)
+    window.addEventListener('scroll', onReposition, true)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', onReposition)
+      window.removeEventListener('scroll', onReposition, true)
+    }
+  }, [open, tipId])
+
+  return (
+    <span className={`info-tip${open ? ' is-open' : ''}`}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="info-tip__button"
+        aria-label={label}
+        aria-expanded={open}
+        aria-controls={tipId}
+        onClick={(event) => {
+          event.stopPropagation()
+          setOpen((current) => !current)
+        }}
+      >
+        i
+      </button>
+      {open && place
+        ? createPortal(
+            <span
+              id={tipId}
+              className={`info-tip__bubble info-tip__bubble--${place.side} is-visible`}
+              role="tooltip"
+              style={{ top: place.top, left: place.left }}
+            >
+              {text}
+            </span>,
+            document.body,
+          )
+        : null}
+    </span>
   )
 }
 

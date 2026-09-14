@@ -45,6 +45,64 @@ const requestSchema = z.discriminatedUnion('op', [
 
 export const gameRoutes = new Hono<{ Variables: AppVariables }>()
 
+/** Latest run progress per scenario for the signed-in owner (picker cards). */
+gameRoutes.get('/runs', requireAuth, async (c) => {
+  const user = c.get('user')
+  try {
+    const result = await pool.query<{
+      scenario_id: string
+      status: string
+      day: number
+      duration_months: number
+      clock_month: number
+      ended: boolean
+    }>(
+      `select distinct on (scenario_id)
+         scenario_id,
+         coalesce(state->>'status', 'active') as status,
+         coalesce((state->>'day')::int, 0) as day,
+         coalesce((state->'campaign'->>'durationMonths')::int, 36) as duration_months,
+         coalesce((state->'campaign'->>'clockMonth')::int, 0) as clock_month,
+         coalesce((state->'campaign'->>'ended')::boolean, false) as ended
+       from game_runs
+       where owner_id = $1
+       order by scenario_id, updated_at desc`,
+      [user.id],
+    )
+    const runs = result.rows.map((row) => {
+      const status: 'active' | 'completed' | 'failed' =
+        row.status === 'completed' || row.status === 'failed' ? row.status : 'active'
+      const ended = Boolean(row.ended) || status === 'completed'
+      const durationMonths = Math.max(1, row.duration_months || 36)
+      const totalDays = durationMonths * 30
+      const byDay = Math.round((Math.max(0, row.day) / totalDays) * 100)
+      const byMonth = Math.round((Math.max(0, row.clock_month) / durationMonths) * 100)
+      const percent = ended ? 100 : Math.min(100, Math.max(byDay, byMonth))
+      return {
+        scenarioId: row.scenario_id,
+        percent,
+        status,
+      }
+    })
+    return c.json({ runs })
+  } catch (error) {
+    console.error('list runs failed', error instanceof Error ? error.message : 'unknown')
+    return c.json({ error: 'INTERNAL_ERROR' }, 500)
+  }
+})
+
+/** Delete every run owned by the signed-in user (scenario progress wipe). */
+gameRoutes.delete('/runs', requireAuth, async (c) => {
+  const user = c.get('user')
+  try {
+    const result = await pool.query(`delete from game_runs where owner_id = $1`, [user.id])
+    return c.json({ ok: true, deleted: result.rowCount ?? 0 })
+  } catch (error) {
+    console.error('delete runs failed', error instanceof Error ? error.message : 'unknown')
+    return c.json({ error: 'INTERNAL_ERROR' }, 500)
+  }
+})
+
 gameRoutes.post('/', requireAuth, async (c) => {
   const parsed = requestSchema.safeParse(await c.req.json())
   if (!parsed.success) return c.json({ error: 'INVALID_INPUT' }, 400)

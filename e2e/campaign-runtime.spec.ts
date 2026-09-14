@@ -9,7 +9,8 @@ const EVIDENCE = '.qa/evidence/campaign-runtime'
 
 async function enterLocalNordkern(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
-    localStorage.setItem('bt.onboarding.seen', '1')
+    localStorage.setItem('bt.onboarding.seen', '1');
+    localStorage.setItem('bt.e2e.allow-local-demo', '1')
     localStorage.removeItem('business-type:active-run:v1')
     localStorage.removeItem('bt.e2e.force-cloud-ui')
   })
@@ -19,7 +20,7 @@ async function enterLocalNordkern(page: import('@playwright/test').Page) {
   })
   const card = page.locator('.scenario-pick').filter({ hasText: 'Nordkern Foods' })
   await card.getByRole('button', { name: /Szenario Nordkern Foods/ }).click()
-  await card.getByRole('button', { name: 'Demo starten' }).click()
+  await card.getByRole('button', { name: 'Szenario starten' }).click()
   await expect(page.getByRole('navigation', { name: 'Hauptnavigation' })).toBeVisible({ timeout: 15_000 })
 }
 
@@ -36,9 +37,9 @@ for (const width of [320, 375, 480] as const) {
     await page.setViewportSize({ width, height: 900 })
     await enterLocalNordkern(page)
 
-    await expect(page.getByTestId('campaign-panel')).toBeVisible()
-    await expect(page.getByTestId('campaign-clock')).toBeVisible()
-    await expect(page.getByTestId('campaign-active-situation')).toBeVisible()
+    await page.getByTestId('room-hub-mode-data').click()
+    await expect(page.getByTestId('room-hub-data')).toBeVisible()
+    await expect(page.locator('.room-lage')).toHaveCount(0)
     await expect(page.locator('body')).not.toContainText('Frühwarnsignal')
     await expect(page.locator('body')).not.toContainText('probabilityBps')
 
@@ -47,15 +48,18 @@ for (const width of [320, 375, 480] as const) {
       fullPage: true,
     })
 
-    await nav(page, 'Entscheidung').click()
-    await expect(page.getByTestId('campaign-panel')).toBeVisible()
+    await nav(page, 'Cockpit').click()
+    await page.getByTestId('room-hub-mode-quest').click()
+    await expect(page.getByTestId('campaign-active-situation')).toBeVisible()
     await page.screenshot({
       path: path.join(EVIDENCE, `${width}-decision-situation.png`),
       fullPage: true,
     })
 
-    await nav(page, 'Mehr').click()
+    await nav(page, 'Verlauf').click()
     await expect(page.getByTestId('campaign-panel')).toBeVisible()
+    await expect(page.getByTestId('campaign-clock')).toBeVisible()
+    await expect(page.getByTestId('campaign-active-situation')).toBeVisible()
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
     expect(scrollWidth).toBeLessThanOrEqual(width + 1)
     await page.screenshot({

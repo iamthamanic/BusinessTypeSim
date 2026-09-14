@@ -25,6 +25,11 @@ export function companyIconSrc(id: ScenarioId): string {
   return COMPANY_ICON[id].src
 }
 
+/** Short header label for room chrome (first token of brand label). */
+export function companyShortLabel(id: ScenarioId): string {
+  return COMPANY_ICON[id].label.split(/\s+/)[0] ?? COMPANY_ICON[id].label
+}
+
 export function companyCoverSrc(id: ScenarioId): string {
   return COMPANY_COVER[id]
 }

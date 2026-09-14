@@ -2,13 +2,20 @@
 import { useMemo, useState } from 'react'
 import { getPlayerWorldView, getScenarioAtVersion, type RunState } from '../../domain'
 import { buildTrendSeries, estimateRunwayMonths, formatMoney, formatPercent } from '../../shared/format'
-import { Card, MetricTile, SectionTitle, Sparkline, Tag } from '../../shared/ui'
+import { Card, InfoTip, MetricTile, SectionTitle, Sparkline } from '../../shared/ui'
+import { metricHelp } from '../../shared/metricHelp'
+import { OrgDirectorySearch } from './OrgDirectorySearch'
+import { buildOrgDirectoryPeople } from './orgDirectoryPeople'
 
 type Tab = 'overview' | 'finance' | 'customers' | 'team'
 
 export function CompanyView({ run }: { run: RunState }) {
   const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
   const world = useMemo(() => getPlayerWorldView(run), [run])
+  const directoryPeople = useMemo(
+    () => buildOrgDirectoryPeople(scenario.advisors, world.departments, world.keyPeople),
+    [scenario.advisors, world.departments, world.keyPeople],
+  )
   const [tab, setTab] = useState<Tab>('overview')
   const trend = useMemo(
     () => buildTrendSeries(run.seed, run.metrics.revenueAnnualCents),
@@ -21,15 +28,6 @@ export function CompanyView({ run }: { run: RunState }) {
 
   return (
     <div className="screen-stack">
-      <div className="screen-heading">
-        <span className="eyebrow">Unternehmensübersicht</span>
-        <div className="title-row">
-          <h1>{scenario.companyName}</h1>
-          <Tag tone="positive">{scenario.stage}</Tag>
-        </div>
-        <p>{scenario.scaleLabel}</p>
-      </div>
-
       <div className="segmented" role="tablist" aria-label="Unternehmensbereiche">
         {(
           [
@@ -46,10 +44,25 @@ export function CompanyView({ run }: { run: RunState }) {
       </div>
 
       <div className="metric-tile-grid metric-tile-grid--2">
-        <MetricTile label="Cash" value={formatMoney(run.metrics.cashCents)} />
-        <MetricTile label="Umsatz / ARR" value={formatMoney(run.metrics.revenueAnnualCents)} hint={growth >= 0 ? `▲ ${growth} % Trend` : `▼ ${Math.abs(growth)} % Trend`} tone={growth >= 0 ? 'positive' : 'negative'} />
-        <MetricTile label="Runway" value={`${runway} Monate`} hint="Schätzung aus Cash & Burn" />
-        <MetricTile label="Mitarbeitende" value={String(run.metrics.headcount)} />
+        <MetricTile label="Cash" value={formatMoney(run.metrics.cashCents)} tip={metricHelp('cash')} />
+        <MetricTile
+          label="Umsatz / ARR"
+          value={formatMoney(run.metrics.revenueAnnualCents)}
+          tip={metricHelp('revenue')}
+          hint={growth >= 0 ? `▲ ${growth} % Trend` : `▼ ${Math.abs(growth)} % Trend`}
+          tone={growth >= 0 ? 'positive' : 'negative'}
+        />
+        <MetricTile
+          label="Runway"
+          value={`${runway} Monate`}
+          tip={metricHelp('runway')}
+          hint="Schätzung aus Cash & Burn"
+        />
+        <MetricTile
+          label="Mitarbeitende"
+          value={String(run.metrics.headcount)}
+          tip={metricHelp('headcount')}
+        />
       </div>
 
       {(tab === 'overview' || tab === 'finance') && (
@@ -66,10 +79,34 @@ export function CompanyView({ run }: { run: RunState }) {
         <Card>
           <SectionTitle title="Wichtigste Kennzahlen" />
           <div className="kv-list">
-            <div><span>EBITDA</span><strong className="tone-pos">{formatMoney(run.metrics.ebitdaAnnualCents)}</strong></div>
-            <div><span>Organisation</span><strong>{formatPercent(run.metrics.moraleBps)}</strong></div>
-            <div><span>Resilienz</span><strong>{formatPercent(run.metrics.resilienceBps)}</strong></div>
-            <div><span>Marktposition</span><strong className="tone-pos">{formatPercent(run.metrics.marketPositionBps)}</strong></div>
+            <div>
+              <span className="metric-label-row">
+                EBITDA
+                <InfoTip text={metricHelp('ebitda')} label="EBITDA erklären" />
+              </span>
+              <strong className="tone-pos">{formatMoney(run.metrics.ebitdaAnnualCents)}</strong>
+            </div>
+            <div>
+              <span className="metric-label-row">
+                Organisation
+                <InfoTip text={metricHelp('morale')} label="Organisation erklären" />
+              </span>
+              <strong>{formatPercent(run.metrics.moraleBps)}</strong>
+            </div>
+            <div>
+              <span className="metric-label-row">
+                Resilienz
+                <InfoTip text={metricHelp('resilience')} label="Resilienz erklären" />
+              </span>
+              <strong>{formatPercent(run.metrics.resilienceBps)}</strong>
+            </div>
+            <div>
+              <span className="metric-label-row">
+                Marktposition
+                <InfoTip text={metricHelp('marketPosition')} label="Marktposition erklären" />
+              </span>
+              <strong className="tone-pos">{formatPercent(run.metrics.marketPositionBps)}</strong>
+            </div>
           </div>
         </Card>
       )}
@@ -122,24 +159,7 @@ export function CompanyView({ run }: { run: RunState }) {
             <div><span>Kapazitätsdruck</span><strong>{formatPercent(run.metrics.capacityUtilizationBps)}</strong></div>
             <div><span>Morale</span><strong>{formatPercent(run.metrics.moraleBps)}</strong></div>
           </div>
-          {world.departments.length > 0 ? (
-            <ul className="fact-list" data-testid="player-departments">
-              {world.departments.map((dept) => (
-                <li key={dept.id}>{dept.name} · {dept.headcount} MA · {dept.focus}</li>
-              ))}
-            </ul>
-          ) : null}
-          {world.keyPeople.length > 0 ? (
-            <ul className="fact-list" data-testid="player-key-people">
-              {world.keyPeople.map((person) => (
-                <li key={person.id}>
-                  {person.name} · {person.role}
-                  {person.flightRiskBps !== undefined ? ` · Flight risk ${formatPercent(person.flightRiskBps)}` : ''}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <div className="chip-row">{scenario.advisors.map((advisor) => <Tag key={advisor.id}>{advisor.role}</Tag>)}</div>
+          <OrgDirectorySearch departments={world.departments} people={directoryPeople} />
         </Card>
       ) : null}
 

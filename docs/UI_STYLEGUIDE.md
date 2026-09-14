@@ -11,7 +11,7 @@ Die primäre visuelle Metapher ist ein **Decision Ledger**: Situationen, beschaf
 Cross-platform premium neutral mit klarer Mobile-Navigation. Android und iOS teilen dieselbe visuelle Sprache; native Unterschiede werden nur dort zugelassen, wo Systemverhalten oder Accessibility davon profitieren.
 
 - Safe Areas immer berücksichtigen.
-- Bottom Navigation maximal fünf Ziele.
+- Bottom Navigation maximal drei Ziele (Cockpit, Firma, Verlauf).
 - Sheets/Dialogs nach nativer Erwartung, aber visuell konsistent.
 - Touch targets mindestens 44×44 CSS px; auf Android bevorzugt 48×48.
 
@@ -21,7 +21,7 @@ Cross-platform premium neutral mit klarer Mobile-Navigation. Android und iOS tei
 2. **Information before decoration:** Zahlen, Trends und Unsicherheiten sind Gestaltungselemente.
 3. **Calm density:** Keine Widget-Wand; komplexe Daten werden gestuft offengelegt.
 4. **Consequences are legible:** Positive, negative und unsichere Effekte sind unterscheidbar, aber nicht alarmistisch.
-5. **Chat is one tool, not the product:** Teamdialoge sind zentral, ersetzen aber keine Company-, KPI- oder Timeline-Views.
+5. **Chat is the spine, not the whole product:** Im aktiven Run ist der Decision Room chat-zentriert; Company-, KPI- und Timeline-Views bleiben echte Surfaces (Firma/Verlauf), nicht Chat-Bubbles.
 6. **Uncertainty is visible:** Schätzungen, Confidence und noch unbekannte Informationen werden semantisch gekennzeichnet.
 7. **No fake gamification:** Keine Coins, Lootbox-Ästhetik, XP-Konfetti oder künstliche Streaks im Kernspiel.
 
@@ -83,13 +83,11 @@ Spacing scale: `4, 8, 12, 16, 20, 24, 32, 40`.
 
 Bottom navigation:
 
-1. **Home** — aktueller Run, nächste Situation, zuletzt veränderte Kennzahlen.
-2. **Unternehmen** — Finanzen, Kunden, Team, Operations, Markt.
-3. **Entscheidung** — aktiver Decision Room und Informationsbeschaffung.
-4. **Team** — virtuelle Führungskräfte/Advisor und Gespräche.
-5. **Verlauf** — Decision Ledger, Events, Reviews, Konsequenzen.
+1. **Cockpit** — War Room Split: Hub oben (Default Quest; Modi Data / Quest / People), Chat & Entscheidungsdock unten.
+2. **Firma** — Finanzen, Kunden, Team, Operations, Markt.
+3. **Verlauf** — Decision Ledger, Events, Reviews, Konsequenzen.
 
-Sekundärnavigation innerhalb von Unternehmen: Übersicht, Finanzen, Kunden, Team, Operations, Markt.
+Sekundärnavigation innerhalb von Firma: Übersicht, Finanzen, Kunden, Team, Operations, Markt.
 
 ## 8. Core screens
 
@@ -109,7 +107,16 @@ Sekundärnavigation innerhalb von Unternehmen: Übersicht, Finanzen, Kunden, Tea
 - Unsicherheit/Schätzung explizit markieren.
 
 ### Decision Room
-Content order:
+Hub above the War Room:
+1. Soft Deadline Chip (immer sichtbar)
+2. Modi Data · Quest · People (Quest vorausgewählt; Toggle zurück zum Firmenlogo)
+3. Default: Firmenlogo der aktuellen ScenarioId
+4. Data: Kern-KPIs
+5. Quest: offene Aufgaben (Frist, Lage, pending Analysen, Entwurf)
+6. People: Management/Advisors → wählt War-Room-Advisor
+7. War Room darunter: Thread, Composer, Analyse-/Entscheidungshandlungen
+
+Content order for decision urgency (Data/Quest):
 1. Datum/Deadline
 2. Situationstitel
 3. Problemkontext

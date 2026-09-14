@@ -63,6 +63,7 @@ export function getPlayerScenario(
     description: scenario.description,
     decisionTitle: scenario.decisionTitle,
     decisionContext: scenario.decisionContext,
+    companyPitch: scenario.companyPitch,
     deadlineDays: scenario.deadlineDays,
     startingMetrics: scenario.startingMetrics,
     metricDefinitions: scenario.metricDefinitions,

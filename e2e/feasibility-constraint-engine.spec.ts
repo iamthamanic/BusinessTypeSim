@@ -9,7 +9,8 @@ const EVIDENCE = '.qa/evidence/feasibility-constraint-engine'
 
 async function enterLocalNordkern(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
-    localStorage.setItem('bt.onboarding.seen', '1')
+    localStorage.setItem('bt.onboarding.seen', '1');
+    localStorage.setItem('bt.e2e.allow-local-demo', '1')
     localStorage.removeItem('business-type:active-run:v1')
     localStorage.removeItem('bt.e2e.force-cloud-ui')
   })
@@ -17,7 +18,7 @@ async function enterLocalNordkern(page: import('@playwright/test').Page) {
   await expect(page.getByRole('heading', { name: 'Wähle dein Unternehmen' })).toBeVisible()
   const card = page.locator('.scenario-pick').filter({ hasText: 'Nordkern Foods' })
   await card.getByRole('button', { name: /Szenario Nordkern Foods/ }).click()
-  await card.getByRole('button', { name: 'Demo starten' }).click()
+  await card.getByRole('button', { name: 'Szenario starten' }).click()
   await expect(page.getByRole('navigation', { name: 'Hauptnavigation' })).toBeVisible({ timeout: 15_000 })
 }
 
@@ -34,7 +35,7 @@ for (const width of [320, 375, 480] as const) {
     await page.setViewportSize({ width, height: 720 })
     await enterLocalNordkern(page)
 
-    await nav(page, 'Entscheidung').click()
+    await nav(page, 'Cockpit').click()
     await page.getByRole('button', { name: /Entscheidung treffen/ }).click()
     await page.locator('textarea').first().fill(
       'Automatisiere Thüringen als Pilot mit maximal 8 Mio. Euro und rolle nur bei Zielerreichung aus.',

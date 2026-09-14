@@ -59,12 +59,6 @@ export function LedgerView({
 
   return (
     <div className="screen-stack">
-      <div className="screen-heading">
-        <span className="eyebrow">Verlauf</span>
-        <h1>Auswertung & Folgen</h1>
-        <p>Prozessqualität und tatsächlicher Ausgang bleiben bewusst getrennt.</p>
-      </div>
-
       <CampaignSituationPanel run={run} />
 
       <div className="segmented" role="tablist" aria-label="Verlaufsansicht">

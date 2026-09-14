@@ -17,19 +17,19 @@ test('auth panel covers login/register/verify/reset screens on mobile widths', a
   page.on('pageerror', (e) => errors.push(e.message))
 
   await page.setViewportSize({ width: 375, height: 812 })
-  await page.goto('/')
+  await page.goto('/login')
   // Skip onboarding if present
   const continueBtn = page.getByRole('button', { name: /Loslegen/i })
   if (await continueBtn.count()) {
     await continueBtn.first().click()
   }
 
-  const panel = page.getByTestId('auth-panel').or(page.locator('.auth-panel'))
+  const panel = page.getByTestId('auth-gate').or(page.getByTestId('auth-panel')).or(page.locator('.auth-panel'))
   await expect(panel.first()).toBeVisible({ timeout: 15000 })
   await page.screenshot({ path: path.join(EVIDENCE_DIR, '01-register.png'), fullPage: true })
 
-  // Without VITE_API_URL the panel explains cloud is unconfigured — still a valid empty/disabled state.
-  const unconfigured = page.getByText(/Cloud-API nicht konfiguriert|Anmelden|Registrieren/)
+  // Auth gate (cloud) or unconfigured panel — both are valid entry states.
+  const unconfigured = page.getByText(/Business Type Sim|Cloud-API nicht konfiguriert|Anmelden|Registrieren/)
   await expect(unconfigured.first()).toBeVisible()
 
   await page.setViewportSize({ width: 320, height: 640 })

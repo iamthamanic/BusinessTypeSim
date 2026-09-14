@@ -8,6 +8,7 @@ import { callChatModel } from '../llm.ts'
 import { interpretOwnedRunLookup } from '../owned-run.ts'
 import { claimAiRequest } from '../rate-limit.ts'
 import {
+  advisorVoiceForRole,
   collectAdvisorToolContext,
   getScenarioAtVersion,
   getPlayerWorldView,
@@ -83,10 +84,14 @@ aiRoutes.post('/', requireAuth, async (c) => {
       const advisor = scenario.advisors.find((candidate) => candidate.id === input.advisorId)
       if (!advisor) return c.json({ error: 'ADVISOR_NOT_FOUND' }, 404)
       const toolContext = collectAdvisorToolContext(run, input.advisorId)
+      const voice = advisorVoiceForRole(advisor.role)
       const answer = await callChatModel([
         {
           role: 'system',
-          content: `Du spielst ${advisor.name}, ${advisor.role}. Haltung: ${advisor.stance}. Nutze ausschließlich Tool-Kontext und sichtbaren Unternehmenskontext. Benenne Unsicherheit offen. Erfinde keine Zahlen. Keine gesperrten Analysen.`,
+          content:
+            `Du spielst ${advisor.name}, ${advisor.role}. Haltung: ${advisor.stance}. `
+            + `${voice.prompt} `
+            + 'Nutze ausschließlich Tool-Kontext und sichtbaren Unternehmenskontext. Benenne Unsicherheit offen. Erfinde keine Zahlen. Keine gesperrten Analysen.',
         },
         {
           role: 'user',

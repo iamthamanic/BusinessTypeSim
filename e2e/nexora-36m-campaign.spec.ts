@@ -9,7 +9,8 @@ const EVIDENCE = '.qa/evidence/nexora-36m-campaign'
 
 async function enterLocalNexora(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
-    localStorage.setItem('bt.onboarding.seen', '1')
+    localStorage.setItem('bt.onboarding.seen', '1');
+    localStorage.setItem('bt.e2e.allow-local-demo', '1')
     localStorage.removeItem('business-type:active-run:v1')
     localStorage.removeItem('bt.e2e.force-cloud-ui')
   })
@@ -19,7 +20,7 @@ async function enterLocalNexora(page: import('@playwright/test').Page) {
   })
   const card = page.locator('.scenario-pick').filter({ hasText: 'Nexora' })
   await card.getByRole('button', { name: /Szenario Nexora/ }).click()
-  await card.getByRole('button', { name: 'Demo starten' }).click()
+  await card.getByRole('button', { name: 'Szenario starten' }).click()
   await expect(page.getByRole('navigation', { name: 'Hauptnavigation' })).toBeVisible({ timeout: 15_000 })
 }
 

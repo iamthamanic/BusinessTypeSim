@@ -16,6 +16,7 @@ import {
 } from '../../infrastructure/cloud'
 import { isBrowserOnline } from '../../infrastructure/cloud-draft'
 import { Button } from '../../shared/ui'
+import { AuthPasswordField } from './AuthPasswordField'
 
 export type AuthScreen =
   | 'login'
@@ -26,6 +27,9 @@ export type AuthScreen =
   | 'sessions'
   | 'delete'
 
+const NETWORK_UNREACHABLE =
+  'Cloud-Server nicht erreichbar. Registrierung/Login geht erst, wenn die API wieder online ist.'
+
 const ERROR_DE: Record<string, string> = {
   INVALID_INPUT: 'Eingabe ungültig.',
   EMAIL_TAKEN: 'Diese E-Mail ist bereits registriert.',
@@ -34,7 +38,9 @@ const ERROR_DE: Record<string, string> = {
   TOKEN_INVALID_OR_EXPIRED: 'Link abgelaufen oder bereits verwendet.',
   RATE_LIMITED: 'Zu viele Versuche — bitte später erneut.',
   SESSION_REVOKED: 'Sitzung ungültig — bitte neu anmelden.',
-  AUTH_REQUIRED: 'Anmeldung erforderlich.',
+  AUTH_REQUIRED: 'Anmeldung erforderlich — bitte erneut einloggen.',
+  BEARER_TOKENS_MISSING: 'Sitzung unvollständig — bitte erneut anmelden.',
+  NATIVE_TOKENS_MISSING: 'Sitzung unvollständig — bitte erneut anmelden.',
   REGISTER_FAILED: 'Registrierung fehlgeschlagen.',
   LOGIN_FAILED: 'Anmeldung fehlgeschlagen.',
   VERIFY_FAILED: 'Bestätigung fehlgeschlagen.',
@@ -43,12 +49,25 @@ const ERROR_DE: Record<string, string> = {
   DELETE_FAILED: 'Konto konnte nicht gelöscht werden.',
   SESSIONS_FAILED: 'Sitzungen konnten nicht geladen werden.',
   REVOKE_FAILED: 'Sitzung konnte nicht beendet werden.',
+  'Failed to fetch': NETWORK_UNREACHABLE,
+  NetworkError: 'Cloud-Server nicht erreichbar. Bitte Verbindung prüfen.',
+  HTTP_404: 'Cloud-API antwortet nicht (404). Deployment prüfen.',
+  HTTP_502: 'Cloud-API vorübergehend nicht erreichbar.',
+  HTTP_503: 'Cloud-API vorübergehend nicht erreichbar.',
 }
 
 function mapError(code: string | undefined): string {
   if (!code) return 'Unbekannter Fehler.'
-  return ERROR_DE[code] ?? code
+  const mapped = ERROR_DE[code]
+  if (mapped) return mapped
+  if (/failed to fetch/i.test(code) || /networkerror/i.test(code) || /load failed/i.test(code)) {
+    return NETWORK_UNREACHABLE
+  }
+  return code
 }
+
+const VERIFY_NEXT_STEP =
+  'Als Nächstes: Bestätigungs-Token aus der E-Mail hier eintragen. Danach kannst du dich anmelden und Szenarien starten.'
 
 export function AuthPanel({
   sessionEmail,
@@ -57,6 +76,7 @@ export function AuthPanel({
   initialToken = null,
   onAuthChange,
   onLogout,
+  localDemoHint = true,
 }: {
   sessionEmail: string | null
   cloudConfigured: boolean
@@ -64,6 +84,8 @@ export function AuthPanel({
   initialToken?: string | null
   onAuthChange: (email: string | null) => void
   onLogout: () => Promise<void>
+  /** When false, do not suggest anonymous local demos. */
+  localDemoHint?: boolean
 }) {
   const [screen, setScreen] = useState<AuthScreen>(initialScreen)
   const [email, setEmail] = useState('')
@@ -133,7 +155,7 @@ export function AuthPanel({
     if (result && 'message' in result && result.message) {
       setMessage(
         result.message === 'VERIFY_EMAIL_SENT'
-          ? 'Konto angelegt. Bitte E-Mail bestätigen (Dev: Capture-Token).'
+          ? `Konto angelegt. ${VERIFY_NEXT_STEP}`
           : result.message,
       )
     }
@@ -144,7 +166,10 @@ export function AuthPanel({
       <section className="auth-panel card" data-testid="auth-panel" aria-live="polite">
         <span className="eyebrow">Cloud optional</span>
         <h2>Cloud-API nicht konfiguriert</h2>
-        <p>Setze <code>VITE_API_URL</code>, um Anmeldung und Sync zu nutzen. Lokale Demos bleiben spielbar.</p>
+        <p>
+          Setze <code>VITE_API_URL</code>, um Anmeldung und Sync zu nutzen.
+          {localDemoHint ? ' Lokale Demos bleiben spielbar.' : ' Ohne API ist Spielen nicht möglich.'}
+        </p>
       </section>
     )
   }
@@ -209,11 +234,22 @@ export function AuthPanel({
                 return result
               }
               const result = await register(email.trim(), password)
-              if (!result.error) setScreen('verify')
+              if (!result.error) {
+                setScreen('verify')
+                return {
+                  message: result.message ?? 'VERIFY_EMAIL_SENT',
+                }
+              }
               return result
             })
           }}
         >
+          {screen === 'register' ? (
+            <p>
+              Nach dem Registrieren bestätigst du deine E-Mail mit einem Token — erst danach
+              funktioniert die Anmeldung.
+            </p>
+          ) : null}
           <label>
             <span>E-Mail</span>
             <input
@@ -225,18 +261,15 @@ export function AuthPanel({
               disabled={busy || !online}
             />
           </label>
-          <label>
-            <span>Passwort (min. 8)</span>
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              autoComplete={screen === 'login' ? 'current-password' : 'new-password'}
-              minLength={8}
-              required
-              disabled={busy || !online}
-            />
-          </label>
+          <AuthPasswordField
+            label="Passwort (min. 8)"
+            value={password}
+            onChange={setPassword}
+            autoComplete={screen === 'login' ? 'current-password' : 'new-password'}
+            minLength={8}
+            required
+            disabled={busy || !online}
+          />
           <div className="auth-panel__actions">
             <Button type="submit" disabled={busy || !online || email.trim().length === 0 || password.length < 8}>
               {busy ? 'Bitte warten…' : screen === 'login' ? 'Anmelden' : 'Registrieren'}
@@ -283,6 +316,7 @@ export function AuthPanel({
             })
           }}
         >
+          <p>{VERIFY_NEXT_STEP}</p>
           <label>
             <span>Bestätigungs-Token</span>
             <input
@@ -357,18 +391,15 @@ export function AuthPanel({
             <span>Reset-Token</span>
             <input value={token} onChange={(e) => setToken(e.target.value)} required disabled={busy || !online} />
           </label>
-          <label>
-            <span>Neues Passwort</span>
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              minLength={8}
-              required
-              disabled={busy || !online}
-              autoComplete="new-password"
-            />
-          </label>
+          <AuthPasswordField
+            label="Neues Passwort"
+            value={password}
+            onChange={setPassword}
+            minLength={8}
+            required
+            disabled={busy || !online}
+            autoComplete="new-password"
+          />
           <div className="auth-panel__actions">
             <Button type="submit" disabled={busy || !online || token.trim().length < 16 || password.length < 8}>
               Passwort setzen
@@ -447,18 +478,15 @@ export function AuthPanel({
           }}
         >
           <p>Löscht dein Konto und alle Cloud-Runs unwiderruflich.</p>
-          <label>
-            <span>Passwort zur Bestätigung</span>
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              required
-              minLength={8}
-              disabled={busy || !online}
-              autoComplete="current-password"
-            />
-          </label>
+          <AuthPasswordField
+            label="Passwort zur Bestätigung"
+            value={password}
+            onChange={setPassword}
+            required
+            minLength={8}
+            disabled={busy || !online}
+            autoComplete="current-password"
+          />
           <div className="auth-panel__actions">
             <Button type="submit" variant="danger" disabled={busy || !online || password.length < 8}>
               Konto löschen

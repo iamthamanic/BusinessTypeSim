@@ -88,7 +88,7 @@ Kein „done“-Claim ohne passenden Test-Gate-Nachweis. Domain-Regeln benötige
 
 - Styleguide: [docs/UI_STYLEGUIDE.md](docs/UI_STYLEGUIDE.md)
 - Leitidee: **Executive Decision Room**, nicht Casual-Tycoon.
-- Hauptnavigation: Home, Unternehmen, Entscheidung, Team, Verlauf.
+- Hauptnavigation: Cockpit, Firma, Verlauf.
 - Jede interaktive Oberfläche braucht relevante Loading-, Empty-, Error-, Disabled-, Focus- und Offline-Zustände.
 - UI darf nicht zu einem reinen Chat-Interface degenerieren; Unternehmensdaten brauchen echte Tabellen, Charts, Listen und Timeline-Views.
 
