@@ -89,7 +89,7 @@ export function ScenarioPicker({
   onStart: (scenarioId: ScenarioId, mode: RunMode) => Promise<void>
   onAuthChange: (email: string | null) => void
   onLogout: () => Promise<void>
-  /** Wipe local + cloud progress; parent should clear any active run shell. */
+  /** Wipe local + cloud progress; parent should clear the active run shell if present. */
   onResetAllScenarios?: () => Promise<void>
   authScreen?: AuthScreen
   authToken?: string | null
