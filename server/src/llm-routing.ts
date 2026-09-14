@@ -15,7 +15,7 @@ export type LlmTaskKind =
   | 'dq_extraction'
   | 'outcome_narration'
   | 'real_world_debrief'
-  | 'situation_briefing'
+  | 'situation_opening'
   | 'admin_authoring'
 
 export type LlmRouteDecision = {
@@ -32,7 +32,7 @@ const FLASH_TASKS: ReadonlySet<LlmTaskKind> = new Set([
   'dq_extraction',
   'outcome_narration',
   'real_world_debrief',
-  'situation_briefing',
+  'situation_opening',
 ])
 
 export function resolveLlmRoute(args: {

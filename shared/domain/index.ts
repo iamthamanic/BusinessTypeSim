@@ -100,16 +100,21 @@ export {
 } from './advisor-voices.ts'
 
 export {
-  SITUATION_BRIEFING_SYSTEM_PROMPT,
-  buildSituationBriefingFallback,
-  buildSituationBriefingInput,
-  evaluateSituationBriefingQuality,
-  sanitizeSituationBriefing,
-  situationBriefingModuleIsGeneric,
-  userPromptForSituationBriefing,
-  type SituationBriefingEval,
-  type SituationBriefingInput,
-} from './situation-briefing.ts'
+  SITUATION_OPENING_SYSTEM_PROMPT,
+  buildSituationOpeningFallback,
+  buildSituationOpeningInput,
+  evaluateSituationOpeningQuality,
+  normalizeSituationOpening,
+  openingSequenceTexts,
+  sanitizeOpeningMessage,
+  situationOpeningAsPlainText,
+  situationOpeningModuleIsGeneric,
+  suggestRelevantAdvisorIds,
+  userPromptForSituationOpening,
+  type SituationOpeningEval,
+  type SituationOpeningInput,
+  type SituationOpeningResult,
+} from './situation-opening.ts'
 
 export {
   advanceTime,

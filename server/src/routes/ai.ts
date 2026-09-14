@@ -1,4 +1,4 @@
-/** AI orchestrator — interpret decisions, advisor answers, situation briefings via Ollama Cloud. */
+/** AI orchestrator — interpret decisions, advisor answers, situation openings via Ollama Cloud. */
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { requireAuth, type AppVariables } from '../auth.ts'
@@ -8,17 +8,17 @@ import { callChatModel } from '../llm.ts'
 import { interpretOwnedRunLookup } from '../owned-run.ts'
 import { claimAiRequest } from '../rate-limit.ts'
 import {
-  SITUATION_BRIEFING_SYSTEM_PROMPT,
+  SITUATION_OPENING_SYSTEM_PROMPT,
   advisorVoiceForRole,
-  buildSituationBriefingFallback,
-  buildSituationBriefingInput,
+  buildSituationOpeningFallback,
+  buildSituationOpeningInput,
   collectAdvisorToolContext,
   getScenarioAtVersion,
   getPlayerWorldView,
   normalizeRunState,
+  normalizeSituationOpening,
   playerWorldContextSummary,
-  sanitizeSituationBriefing,
-  userPromptForSituationBriefing,
+  userPromptForSituationOpening,
   type ActionProposal,
   type RunState,
 } from '../../../shared/domain/index.ts'
@@ -37,7 +37,7 @@ const inputSchema = z.discriminatedUnion('mode', [
     question: z.string().min(2).max(2500),
   }),
   z.object({
-    mode: z.literal('situation_briefing'),
+    mode: z.literal('situation_opening'),
     runId: z.string().min(1),
   }),
 ])
@@ -67,6 +67,19 @@ function extractJson(text: string): unknown {
   return JSON.parse((fenced ?? text).trim())
 }
 
+function openingResponse(run: RunState, source: 'llm' | 'fallback', raw?: unknown) {
+  const fallback = buildSituationOpeningFallback(run)
+  if (source === 'fallback' || raw === undefined) {
+    return { ...fallback, source: 'fallback' as const }
+  }
+  const normalized = normalizeSituationOpening(
+    raw as { messages?: unknown; decisionPrompt?: unknown; relevantAdvisorIds?: unknown },
+    run,
+  )
+  if (!normalized) return { ...fallback, source: 'fallback' as const }
+  return { ...normalized, source: 'llm' as const }
+}
+
 export const aiRoutes = new Hono<{ Variables: AppVariables }>()
 
 aiRoutes.post('/', requireAuth, async (c) => {
@@ -89,26 +102,28 @@ aiRoutes.post('/', requireAuth, async (c) => {
     const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
     const contextData = visibleContext(run)
 
-    if (input.mode === 'situation_briefing') {
-      const briefingInput = buildSituationBriefingInput(run)
-      if (!briefingInput) {
-        return c.json({ answer: buildSituationBriefingFallback(run), source: 'fallback' })
+    if (input.mode === 'situation_opening') {
+      const openingInput = buildSituationOpeningInput(run)
+      if (!openingInput) {
+        return c.json(openingResponse(run, 'fallback'))
       }
       try {
-        const raw = await callChatModel(
+        const rawText = await callChatModel(
           [
-            { role: 'system', content: SITUATION_BRIEFING_SYSTEM_PROMPT },
-            { role: 'user', content: userPromptForSituationBriefing(briefingInput) },
+            { role: 'system', content: SITUATION_OPENING_SYSTEM_PROMPT },
+            { role: 'user', content: userPromptForSituationOpening(openingInput) },
           ],
-          { task: 'situation_briefing' },
+          { task: 'situation_opening' },
         )
-        const answer = sanitizeSituationBriefing(raw)
-        if (answer.length < 40) {
-          return c.json({ answer: buildSituationBriefingFallback(run), source: 'fallback' })
+        let parsedJson: unknown
+        try {
+          parsedJson = extractJson(rawText)
+        } catch {
+          return c.json(openingResponse(run, 'fallback'))
         }
-        return c.json({ answer, source: 'llm' })
+        return c.json(openingResponse(run, 'llm', parsedJson))
       } catch {
-        return c.json({ answer: buildSituationBriefingFallback(run), source: 'fallback' })
+        return c.json(openingResponse(run, 'fallback'))
       }
     }
 

@@ -1,12 +1,14 @@
 /**
- * Opening brief → Quest reveal timing for a run.
+ * Opening conversation → Quest reveal timing for a run.
  * Location: src/features/room/openingBrief.ts
- * Chat copy comes from LLM situation_briefing (or domain fallback) — not raw title/context dump.
+ * Chat copy comes from LLM situation_opening (or domain fallback) as progressive messages.
  */
 import {
   HOUSE_ASSISTANT_ID,
-  buildSituationBriefingFallback,
+  buildSituationOpeningFallback,
+  openingSequenceTexts,
   type RunState,
+  type SituationOpeningResult,
 } from '../../domain'
 import type { AdvisorThread } from '../team/TeamView'
 
@@ -89,13 +91,30 @@ export function areQuestsRevealed(runId: string, now = Date.now()): boolean {
   return now >= at
 }
 
-/** @deprecated Prefer LLM briefing + buildSituationBriefingFallback. Kept for tests. */
+/** @deprecated Prefer openingSequenceTexts(buildSituationOpeningFallback(run)). */
 export function buildOpeningBriefText(run: RunState): string {
-  return buildSituationBriefingFallback(run)
+  return openingSequenceTexts(buildSituationOpeningFallback(run)).join('\n\n')
+}
+
+function adalbertThread(threads: AdvisorThread[]): AdvisorThread | undefined {
+  return threads.find((thread) => thread.advisorId === HOUSE_ASSISTANT_ID)
+}
+
+function setAdalbertMessages(
+  threads: AdvisorThread[],
+  messages: AdvisorThread['messages'],
+): AdvisorThread[] {
+  const existing = adalbertThread(threads)
+  if (!existing) {
+    return [...threads, { advisorId: HOUSE_ASSISTANT_ID, messages }]
+  }
+  return threads.map((thread) =>
+    thread.advisorId === HOUSE_ASSISTANT_ID ? { ...thread, messages } : thread,
+  )
 }
 
 /**
- * Seed Adalbert with a pending typing message (empty text) until LLM/fallback fills it.
+ * Seed Adalbert with a pending typing message (empty text) until opening arrives.
  * Does not dump raw situation title/context into chat.
  */
 export function seedPendingOpeningBrief(
@@ -103,12 +122,12 @@ export function seedPendingOpeningBrief(
   run: RunState,
   atIso = new Date().toISOString(),
 ): AdvisorThread[] {
-  const existing = threads.find((thread) => thread.advisorId === HOUSE_ASSISTANT_ID)
+  const existing = adalbertThread(threads)
   if (existing && existing.messages.some((message) => message.text.trim().length > 0)) {
     return threads
   }
   if (e2eSkipOpeningDelay() || isOpeningStreamDone(run.runId)) {
-    return applyOpeningBriefMessage(threads, buildSituationBriefingFallback(run), atIso, false)
+    return applyOpeningSequence(threads, buildSituationOpeningFallback(run), atIso, false)
   }
   const pending = {
     role: 'advisor' as const,
@@ -116,18 +135,11 @@ export function seedPendingOpeningBrief(
     at: atIso,
     animate: true,
   }
-  if (!existing) {
-    return [...threads, { advisorId: HOUSE_ASSISTANT_ID, messages: [pending] }]
-  }
-  return threads.map((thread) =>
-    thread.advisorId === HOUSE_ASSISTANT_ID
-      ? { ...thread, messages: thread.messages.length === 0 ? [pending] : thread.messages }
-      : thread,
-  )
+  return setAdalbertMessages(threads, existing?.messages.length ? existing.messages : [pending])
 }
 
-/** Replace / set Adalbert opening message after LLM or fallback. */
-export function applyOpeningBriefMessage(
+/** Append one Adalbert advisor message (for progressive opening beats). */
+export function appendOpeningAdvisorMessage(
   threads: AdvisorThread[],
   text: string,
   atIso = new Date().toISOString(),
@@ -139,26 +151,90 @@ export function applyOpeningBriefMessage(
     at: atIso,
     animate: animate && !e2eSkipOpeningDelay(),
   }
-  const existing = threads.find((thread) => thread.advisorId === HOUSE_ASSISTANT_ID)
+  const existing = adalbertThread(threads)
   if (!existing) {
-    return [...threads, { advisorId: HOUSE_ASSISTANT_ID, messages: [message] }]
+    return [{ advisorId: HOUSE_ASSISTANT_ID, messages: [message] }]
   }
-  return threads.map((thread) => {
-    if (thread.advisorId !== HOUSE_ASSISTANT_ID) return thread
-    if (thread.messages.length === 0) return { ...thread, messages: [message] }
-    // Replace first empty/pending advisor message, else first advisor message.
-    const index = thread.messages.findIndex(
-      (item) => item.role === 'advisor' && item.text.trim().length === 0,
-    )
-    const target = index >= 0 ? index : 0
-    return {
-      ...thread,
-      messages: thread.messages.map((item, i) => (i === target ? message : item)),
-    }
-  })
+  return setAdalbertMessages(threads, [...existing.messages, message])
 }
 
-/** @deprecated Use seedPendingOpeningBrief + applyOpeningBriefMessage. */
+/**
+ * Apply opening: first message replaces pending empty bubble; remaining returned for queue.
+ * When animate=false, all sequence texts are applied at once.
+ */
+export function applyOpeningSequence(
+  threads: AdvisorThread[],
+  opening: SituationOpeningResult,
+  atIso = new Date().toISOString(),
+  animate = true,
+): AdvisorThread[] {
+  const texts = openingSequenceTexts(opening)
+  if (texts.length === 0) return threads
+
+  if (!animate || e2eSkipOpeningDelay()) {
+    const messages = texts.map((text) => ({
+      role: 'advisor' as const,
+      text,
+      at: atIso,
+      animate: false,
+    }))
+    return setAdalbertMessages(threads, messages)
+  }
+
+  const first = {
+    role: 'advisor' as const,
+    text: texts[0] ?? '',
+    at: atIso,
+    animate: true,
+  }
+  const existing = adalbertThread(threads)
+  if (!existing || existing.messages.length === 0) {
+    return setAdalbertMessages(threads, [first])
+  }
+  const pendingIndex = existing.messages.findIndex(
+    (item) => item.role === 'advisor' && item.text.trim().length === 0,
+  )
+  if (pendingIndex >= 0) {
+    return setAdalbertMessages(
+      threads,
+      existing.messages.map((item, index) => (index === pendingIndex ? first : item)),
+    )
+  }
+  // Already has content — replace first advisor message only if it was a single pending-style seed.
+  if (existing.messages.length === 1 && existing.messages[0]?.role === 'advisor') {
+    return setAdalbertMessages(threads, [first])
+  }
+  return appendOpeningAdvisorMessage(threads, first.text, atIso, true)
+}
+
+/** Texts after the first beat — feed into progressive queue. */
+export function remainingOpeningTexts(opening: SituationOpeningResult): string[] {
+  return openingSequenceTexts(opening).slice(1)
+}
+
+/** @deprecated Prefer applyOpeningSequence for multi-beat openings. */
+export function applyOpeningBriefMessage(
+  threads: AdvisorThread[],
+  text: string,
+  atIso = new Date().toISOString(),
+  animate = true,
+): AdvisorThread[] {
+  return applyOpeningSequence(
+    threads,
+    {
+      messages: [
+        text,
+        'Wie gehen wir das an — holen wir zuerst eine Einschätzung aus dem Team?',
+      ],
+      decisionPrompt: null,
+      relevantAdvisorIds: [],
+    },
+    atIso,
+    animate,
+  )
+}
+
+/** @deprecated Use seedPendingOpeningBrief + applyOpeningSequence. */
 export function ensureOpeningBriefThread(
   threads: AdvisorThread[],
   run: RunState,

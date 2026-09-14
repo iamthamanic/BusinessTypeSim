@@ -2,14 +2,15 @@
  * Client AI adapters — cloud AI with local deterministic fallbacks.
  * Location: src/infrastructure/ai.ts
  */
-import type { ActionProposal, RunState } from '../domain'
+import type { ActionProposal, RunState, SituationOpeningResult } from '../domain'
 import {
   advisorVoiceForRole,
-  buildSituationBriefingFallback,
+  buildSituationOpeningFallback,
   getPlayerCampaignView,
   getPublishedCampaignForScenario,
   getScenarioAtVersion,
   interpretDecisionLocally,
+  situationOpeningAsPlainText,
 } from '../domain'
 import { formatMoney, formatPercent } from '../shared/format'
 import { apiFetch, cloudConfigured, getSession } from './cloud'
@@ -23,6 +24,14 @@ interface AdvisorResponse {
   answer?: string
   error?: string
   source?: string
+}
+
+interface SituationOpeningResponse {
+  messages?: string[]
+  decisionPrompt?: string | null
+  relevantAdvisorIds?: string[]
+  source?: string
+  error?: string
 }
 
 export async function interpretDecision(
@@ -52,35 +61,47 @@ export async function interpretDecision(
 }
 
 /**
- * Adalbert situation briefing via dedicated LLM task (situation_briefing).
- * Always returns usable German text; falls back deterministically on failure.
+ * Adalbert situation opening via dedicated LLM task (situation_opening).
+ * Always returns usable structured messages; falls back deterministically on failure.
  */
-export async function requestSituationBriefing(
+export async function requestSituationOpening(
   run: RunState,
   useCloud: boolean,
-): Promise<{ answer: string; source: 'llm' | 'fallback' }> {
-  const fallback = buildSituationBriefingFallback(run)
+): Promise<{ opening: SituationOpeningResult; source: 'llm' | 'fallback' }> {
+  const fallback = buildSituationOpeningFallback(run)
   if (!useCloud || !cloudConfigured) {
-    return { answer: fallback, source: 'fallback' }
+    return { opening: fallback, source: 'fallback' }
   }
   try {
-    const data = await apiFetch<AdvisorResponse>('/ai', {
+    const data = await apiFetch<SituationOpeningResponse>('/ai', {
       method: 'POST',
       body: JSON.stringify({
-        mode: 'situation_briefing',
+        mode: 'situation_opening',
         runId: run.runId,
       }),
     })
-    if (data.answer && data.answer.trim().length >= 40) {
+    const messages = Array.isArray(data.messages)
+      ? data.messages.filter((item): item is string => typeof item === 'string' && item.trim().length >= 12)
+      : []
+    if (messages.length >= 2) {
       return {
-        answer: data.answer.trim(),
+        opening: {
+          messages: messages.slice(0, 4),
+          decisionPrompt:
+            typeof data.decisionPrompt === 'string' && data.decisionPrompt.trim().length >= 8
+              ? data.decisionPrompt.trim()
+              : null,
+          relevantAdvisorIds: Array.isArray(data.relevantAdvisorIds)
+            ? data.relevantAdvisorIds.filter((id): id is string => typeof id === 'string').slice(0, 3)
+            : [],
+        },
         source: data.source === 'llm' ? 'llm' : 'fallback',
       }
     }
   } catch {
     // fall through
   }
-  return { answer: fallback, source: 'fallback' }
+  return { opening: fallback, source: 'fallback' }
 }
 
 export async function askAdvisor(
@@ -118,35 +139,21 @@ function sanitizeAdvisorAnswer(answer: string): string {
     .replace(/Frage:\s*.+$/im, '')
     .replace(/Ich nutze nur freigeschaltete Evidence.*$/im, '')
     .trim()
-  return cleaned.length > 40 ? cleaned : trimmed.split('\n').find((line) => line.trim().length > 20)?.trim() ?? trimmed
+  return cleaned.length > 20 ? cleaned : trimmed
 }
 
 function localAdvisorAnswer(run: RunState, advisorId: string, question: string): string {
   const scenario = getScenarioAtVersion(run.scenarioId, run.scenarioVersion)
-  const advisor = scenario.advisors.find((item) => item.id === advisorId)
-  const role = advisor?.role ?? 'Advisor'
-  const voice = advisorVoiceForRole(role)
-  const q = question.trim()
-  const qLower = q.toLowerCase()
-  const daysLeft = Math.max(0, run.deadlineDay - run.day)
+  const advisor = scenario.advisors.find((candidate) => candidate.id === advisorId)
   const campaign = getPublishedCampaignForScenario(run.scenarioId)
   const campaignView = getPlayerCampaignView(run, campaign)
   const m = run.metrics
-
-  const opener =
-    advisorId === 'adalbert' || role.toLowerCase().includes('assistent')
-      ? 'Kurz gesagt:'
-      : role.toLowerCase().includes('finance') || advisorId.includes('cfo') || advisorId.includes('finance')
-        ? 'Aus Finance-Sicht:'
-        : role.toLowerCase().includes('hr') || role.toLowerCase().includes('ops') || advisorId.includes('hr')
-          ? 'Aus People-/Ops-Sicht:'
-          : role.toLowerCase().includes('it') || advisorId.includes('cto')
-            ? 'Aus IT-Sicht:'
-            : role.toLowerCase().includes('sales')
-              ? 'Aus Sales-Sicht:'
-              : `${role}:`
-
+  const daysLeft = Math.max(0, run.deadlineDay - run.day)
+  const voice = advisorVoiceForRole(advisor?.role ?? 'Assistent')
+  const opener = advisor ? `${advisor.name}:` : 'Adalbert:'
   const styleHint = voice.blurb
+  const q = question.trim()
+  const qLower = q.toLowerCase()
 
   if (q.length < 3 || /^(test|hallo|hi|hey|ok|ping|asdf)\b/i.test(qLower)) {
     return `${opener} Ich bin da (${styleHint}). Frag konkret nach Cash, Frist, aktueller Lage oder einer Kennzahl — dann antworte ich mit freigeschaltetem Wissen.`
@@ -174,7 +181,7 @@ function localAdvisorAnswer(run: RunState, advisorId: string, question: string):
 
   if (/lage|situation|campaign|was steht an|priorität/.test(qLower)) {
     if (campaignView.active) {
-      return buildSituationBriefingFallback(run)
+      return situationOpeningAsPlainText(buildSituationOpeningFallback(run))
     }
     return `${opener} Gerade ist keine dringende Unternehmenssituation aktiv. Du kannst Zeit voranschreiten oder auf die nächste Entwicklung warten.`
   }

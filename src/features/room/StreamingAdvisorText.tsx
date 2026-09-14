@@ -1,7 +1,7 @@
 /**
  * Chat-style typing delay + character stream for advisor messages.
  * Location: src/features/room/StreamingAdvisorText.tsx
- * Empty text + animate keeps typing dots until content arrives (LLM briefings).
+ * Empty text + animate keeps typing dots until content arrives (LLM openings).
  */
 import { useEffect, useRef, useState } from 'react'
 

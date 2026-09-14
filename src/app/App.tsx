@@ -2,7 +2,7 @@
  * App shell — orchestration for onboarding, scenario start, run navigation.
  * Location: src/app/App.tsx
  */
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import {
   advanceTime,
@@ -24,7 +24,7 @@ import { OnboardingScreen } from '../features/onboarding/OnboardingScreen'
 import { DecisionRoomView } from '../features/room/DecisionRoomView'
 import { ScenarioPicker } from '../features/scenario/ScenarioPicker'
 import { type AdvisorThread } from '../features/team/TeamView'
-import { askAdvisor, interpretDecision, requestSituationBriefing } from '../infrastructure/ai'
+import { askAdvisor, interpretDecision, requestSituationOpening } from '../infrastructure/ai'
 import { clearCloudDraft, isBrowserOnline, loadCloudDraft, saveCloudDraft } from '../infrastructure/cloud-draft'
 import { resetAllScenarioProgress } from '../infrastructure/reset-scenarios'
 import {
@@ -45,11 +45,13 @@ import { scenarioIdFromSlug, scenarioSlug } from '../shared/scenarioRoutes'
 import { Button, Card, Tag } from '../shared/ui'
 import { RoomInfoSheet } from '../features/room/RoomInfoSheet'
 import {
-  applyOpeningBriefMessage,
+  appendOpeningAdvisorMessage,
+  applyOpeningSequence,
   areQuestsRevealed,
   e2eSkipOpeningDelay,
   markOpeningStreamDone,
   readQuestRevealAt,
+  remainingOpeningTexts,
   scheduleQuestReveal,
   seedPendingOpeningBrief,
 } from '../features/room/openingBrief'
@@ -120,6 +122,7 @@ export function App() {
   const [online, setOnline] = useState(() => isBrowserOnline())
   const [commitKey, setCommitKey] = useState(() => newIdempotencyKey())
   const [authLink] = useState(() => authDeepLink())
+  const openingQueueRef = useRef<string[]>([])
 
   useEffect(() => {
     void getSession()
@@ -203,26 +206,29 @@ export function App() {
     return () => window.clearTimeout(timer)
   }, [run?.runId])
 
-  /** Generate Adalbert situation briefing via LLM (fallback on failure). */
+  /** Generate Adalbert situation opening via LLM (progressive messages; fallback on failure). */
   useEffect(() => {
     if (!run) return
     let cancelled = false
     const runId = run.runId
+    openingQueueRef.current = []
     void (async () => {
-      const { answer } = await requestSituationBriefing(run, runMode === 'cloud')
+      const { opening } = await requestSituationOpening(run, runMode === 'cloud')
       if (cancelled) return
       setThreads((current) => {
         const adalbert = current.find((thread) => thread.advisorId === HOUSE_ASSISTANT_ID)
-        const alreadyFilled = adalbert?.messages.some(
-          (message) => message.role === 'advisor' && message.text.trim().length > 40,
-        )
+        const alreadyFilled = (adalbert?.messages.filter(
+          (message) => message.role === 'advisor' && message.text.trim().length > 20,
+        ).length ?? 0) >= 2
         if (alreadyFilled) return current
-        return applyOpeningBriefMessage(
-          current,
-          answer,
-          new Date().toISOString(),
-          !e2eSkipOpeningDelay(),
-        )
+        const animate = !e2eSkipOpeningDelay()
+        if (!animate) {
+          openingQueueRef.current = []
+          markOpeningStreamDone(runId)
+          return applyOpeningSequence(current, opening, new Date().toISOString(), false)
+        }
+        openingQueueRef.current = remainingOpeningTexts(opening)
+        return applyOpeningSequence(current, opening, new Date().toISOString(), true)
       })
     })()
     return () => {
@@ -251,6 +257,7 @@ export function App() {
       const seed = randomSeed()
       const next = mode === 'cloud' ? await createCloudRun(scenarioId, seed) : createRun(scenarioId, seed)
       scheduleQuestReveal(next.runId)
+      openingQueueRef.current = []
       setThreads(seedPendingOpeningBrief([], next))
       setQuestsRevealed(areQuestsRevealed(next.runId))
       setRunMode(mode)
@@ -585,9 +592,8 @@ export function App() {
               }}
               onOpenDecide={() => setDecisionPhase('compose')}
               onMessageAnimated={(advisorId, messageIndex) => {
-                if (advisorId === HOUSE_ASSISTANT_ID) markOpeningStreamDone(run.runId)
-                setThreads((current) =>
-                  current.map((thread) => {
+                setThreads((current) => {
+                  let next = current.map((thread) => {
                     if (thread.advisorId !== advisorId) return thread
                     return {
                       ...thread,
@@ -595,8 +601,22 @@ export function App() {
                         index === messageIndex ? { ...message, animate: false } : message,
                       ),
                     }
-                  }),
-                )
+                  })
+                  if (advisorId === HOUSE_ASSISTANT_ID) {
+                    const queued = openingQueueRef.current
+                    if (queued.length > 0) {
+                      const [text, ...rest] = queued
+                      openingQueueRef.current = rest
+                      if (text) {
+                        next = appendOpeningAdvisorMessage(next, text, new Date().toISOString(), true)
+                      }
+                      if (rest.length === 0) markOpeningStreamDone(run.runId)
+                    } else {
+                      markOpeningStreamDone(run.runId)
+                    }
+                  }
+                  return next
+                })
               }}
             />
           ) : null}
